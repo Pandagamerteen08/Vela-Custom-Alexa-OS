@@ -46,11 +46,23 @@ done
 log() { printf '[rootfs] %s\n' "$*"; }
 die() { printf '[rootfs] error: %s\n' "$*" >&2; exit 1; }
 
+# Portability probes: python3 is named python on some hosts, and stat -c is
+# GNU while stat -f is BSD/macOS. Both are used below.
+if [ -z "${PY:-}" ]; then
+    if command -v python3 >/dev/null 2>&1; then PY=python3
+    elif command -v python >/dev/null 2>&1; then PY=python
+    else die "no python3/python on PATH"; fi
+fi
+fsize() {
+    stat -c%s "$1" 2>/dev/null || stat -f%z "$1" 2>/dev/null || \
+        wc -c <"$1" | tr -d ' '
+}
+
 case "$VARIANT" in openrc|inittab) : ;; *) die "--variant must be openrc or inittab" ;; esac
 
 # --- 1. the package contract ---------------------------------------------
 [ -f "$ROOT/rootfs/packages.txt" ] || die "rootfs/packages.txt is missing"
-PKGS=$(python3 "$ROOT/tools/packages.py" apk-args --file "$ROOT/rootfs/packages.txt") || \
+PKGS=$("$PY" "$ROOT/tools/packages.py" apk-args --file "$ROOT/rootfs/packages.txt") || \
     die "packages.txt failed validation (every package needs a justification)"
 [ -n "$PKGS" ] || die "package list is empty"
 
@@ -77,7 +89,7 @@ if [ "$DRY" = "1" ]; then
 fi
 
 command -v mksquashfs >/dev/null || die "mksquashfs not found (squashfs-tools)"
-command -v python3 >/dev/null || die "python3 not found"
+command -v "${PY:-python3}" >/dev/null || die "python3 not found"
 
 # --- 2. assemble the tree ------------------------------------------------
 if [ -n "$PREPARED" ]; then
@@ -87,10 +99,14 @@ if [ -n "$PREPARED" ]; then
 else
     [ "$(id -u)" = "0" ] || die "the apk step needs root (chroot + mknod). Use sudo, or --root."
     command -v "$QEMU" >/dev/null || die "$QEMU not found. Install qemu-user-static."
-    if [ ! -e /proc/sys/fs/binfmt_misc/arm ]; then
-        die "binfmt for arm is not registered. Install binfmt-support and run:
-     update-binfmts --enable qemu-arm
-     (Without it, apk's armv7 triggers fail with 'Exec format error'.)"
+    # The explicit `chroot ... qemu-arm-static` call below works without binfmt,
+    # but apk's armv7 post-install triggers need it. Warn instead of dying: in a
+    # container without --privileged this is expected, and apk fails loudly on
+    # its own if a trigger is actually required.
+    if [ ! -e /proc/sys/fs/binfmt_misc/arm ] && \
+       [ ! -e /proc/sys/fs/binfmt_misc/qemu-arm ]; then
+        log "WARNING: arm binfmt is not registered; apk's armv7 triggers may fail"
+        log "         host fix: apt install binfmt-support qemu-user-static && update-binfmts --enable qemu-arm"
     fi
 
     rm -rf "$TREE"
@@ -99,8 +115,10 @@ else
     if [ ! -f "$BUILD/$TARBALL" ]; then
         log "downloading $TARBALL"
         # Directory listing, because the patch release number moves.
+        # `sort -V` is GNU-only, so version-sort with python instead.
         URL=$(curl -fsSL "$MIRROR/$ALPINE_BRANCH/releases/armhf/" | \
-              grep -o "alpine-minirootfs-$ALPINE_VER\.[0-9]*-armv7\.tar\.gz" | sort -V | tail -1)
+              grep -o "alpine-minirootfs-$ALPINE_VER\.[0-9]*-armv7\.tar\.gz" | \
+              "$PY" -c 'import sys,re\nv=sorted(set(sys.stdin.read().split()), key=lambda s: [int(x) for x in re.findall(r"[0-9]+", s)] or [0])\nprint(v[-1] if v else "")')
         [ -n "$URL" ] || die "could not find a minirootfs for Alpine $ALPINE_VER; set ALPINE_VER"
         curl -fsSL -o "$BUILD/$TARBALL" "$MIRROR/$ALPINE_BRANCH/releases/armhf/$URL"
     fi
@@ -168,10 +186,10 @@ mksquashfs "$TREE" "$OUT" \
     -comp xz -b 131072 -no-xattrs -all-root -noappend -no-progress \
     || die "mksquashfs failed"
 
-SIZE=$(stat -c%s "$OUT")
+SIZE=$(fsize "$OUT")
 log "wrote $OUT ($((SIZE / 1024)) KiB)"
 
-python3 - "$OUT" "$SIZE" <<'PY'
+"$PY" - "$OUT" "$SIZE" <<'PY'
 import hashlib, json, os, subprocess, sys, time
 path, size = sys.argv[1], int(sys.argv[2])
 h = hashlib.sha256()

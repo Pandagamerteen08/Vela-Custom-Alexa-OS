@@ -1,0 +1,9 @@
+.git
+build
+dist
+kernel/src
+**/__pycache__
+*.pyc
+.env
+*.key
+*.pem

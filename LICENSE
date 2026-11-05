@@ -1,0 +1,37 @@
+MIT License
+
+Copyright (c) 2026 cronos-min contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+Scope note, because this repository sits next to other people's licences:
+
+  * Everything written here - tools/, initramfs/init, src/, rootfs/overlay/,
+    docs/, tests/ - is the MIT-licensed work above.
+  * The kernel tree this project builds
+    (github.com/amazon-oss/android_kernel_amazon_mtk8163, branch
+    cronos/lineage-18.1) is GPL-2.0 and is cloned at build time, never vendored.
+    Building or distributing a kernel image from it puts you under GPL-2.0 for
+    that image.
+  * Alpine packages installed into the rootfs keep their own licences, which the
+    package database in the image records.
+  * The Amazon bootloader, TEE and preloader are proprietary and are not
+    redistributed here in any form.

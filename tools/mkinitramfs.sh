@@ -21,6 +21,18 @@ set -euo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/.." && pwd)
+
+# python3 is not called python3 on every host, and stat -c is GNU-only.
+if [ -z "${PY:-}" ]; then
+    if command -v python3 >/dev/null 2>&1; then PY=python3
+    elif command -v python >/dev/null 2>&1; then PY=python
+    else echo "[initramfs] error: no python3/python on PATH" >&2; exit 1; fi
+fi
+fsize() {
+    stat -c%s "$1" 2>/dev/null || stat -f%z "$1" 2>/dev/null || \
+        wc -c <"$1" | tr -d ' '
+}
+
 OUT=${OUT:-$ROOT/build/initramfs.cpio.gz}
 BUSYBOX=${BUSYBOX:-}
 SLOTCTL=${SLOTCTL:-$ROOT/build/slotctl-aarch64}
@@ -111,7 +123,8 @@ install -m 0755 "$SLOTCTL" "$STAGE/bin/slotctl"
 if [ -d "$ROOT/build/kernel" ]; then
     mkdir -p "$STAGE/lib/modules"
     for m in squashfs loop ext4; do
-        found=$(find "$ROOT/build/kernel" -name "$m.ko" -print -quit 2>/dev/null || true)
+        # `-print -quit` is GNU find; head -1 is portable.
+        found=$(find "$ROOT/build/kernel" -name "$m.ko" 2>/dev/null | head -1 || true)
         if [ -n "$found" ]; then
             log "including module $m.ko"
             cp "$found" "$STAGE/lib/modules/"
@@ -120,13 +133,13 @@ if [ -d "$ROOT/build/kernel" ]; then
 fi
 
 log "packing"
-python3 "$ROOT/tools/mkcpio.py" create "$STAGE" -o "$ROOT/build/initramfs.cpio"
+"$PY" "$ROOT/tools/mkcpio.py" create "$STAGE" -o "$ROOT/build/initramfs.cpio"
 # -n omits the mtime/name so two builds of the same tree are byte-identical;
 # gzip straight to $OUT because mv-ing onto the default path is an error.
 gzip -9 -n -c "$ROOT/build/initramfs.cpio" > "$OUT"
 rm -f "$ROOT/build/initramfs.cpio"
 
-SIZE=$(stat -c%s "$OUT")
+SIZE=$(fsize "$OUT")
 log "wrote $OUT ($SIZE bytes)"
 if [ "$SIZE" -gt "$MAX_BYTES" ]; then
     log "WARNING: over the ${MAX_BYTES} byte budget. The boot partition is 16 MB"

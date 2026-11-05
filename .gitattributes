@@ -1,0 +1,19 @@
+# Normalise line endings: this repository is built by POSIX shells on Windows
+# machines too, and a CRLF shebang fails with "bad interpreter", which reads like
+# a missing dependency. LF everywhere except where a tool needs otherwise.
+* text=auto eol=lf
+
+*.sh    text eol=lf
+*.py    text eol=lf
+*.c     text eol=lf
+*.h     text eol=lf
+*.md    text eol=lf
+Makefile text eol=lf
+Dockerfile text eol=lf
+
+# Binary artifacts are never normalised.
+*.img   binary
+*.dtb   binary
+*.squashfs binary
+*.gz    binary
+*.apk   binary

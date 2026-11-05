@@ -1,47 +1,65 @@
 # cronos-min — build entry points.
 #
-# The point of this file is that every number in docs/ can be reproduced with
-# one command, and every gate fails the build rather than the device.
+# Every number in docs/ is reproducible with one command, and every gate fails
+# the build rather than the device.
 #
-#   make test        host-only checks (tools + slot state machine)
+#   make test        host-only checks (tools + slot state machine + packer)
 #   make check       toolchain and source sanity, no compilation
 #   make boot        kernel + initramfs + boot.img
 #   make boot-dev    the debuggable kernel (flash this when the panel is dark)
 #   make trim        aggressive size trim (risky; boot-test it)
 #   make sizes       what the artifacts actually cost
+#   make release     package dist/ for a GitHub release
+#   make doctor      what this machine can build
 #
 # Nothing here flashes anything. Flashing is tools/deploy.sh, dry-run by default.
+#
+# Portability: GNU make is assumed (it ships with macOS, and comes with Git Bash
+# or Chocolatey on Windows). The recursive `python tools/cronos.py` calls work on
+# any OS; the shell-script targets need a POSIX shell, which is why `make test`
+# on Windows wants Git Bash while `python tools/cronos.py test` does not.
 
 ROOT      := $(CURDIR)
 BUILD     := $(ROOT)/build
 KERNEL_OUT:= $(BUILD)/kernel
-JOBS      ?= $(shell nproc 2>/dev/null || echo 4)
+
+# nproc is GNU, getconf is POSIX, sysctl is macOS.
+CPUS := $(shell nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || \
+                sysctl -n hw.ncpu 2>/dev/null || echo 4)
+JOBS ?= $(CPUS)
+
+# python3 is not called python3 everywhere (Windows, some macOS setups).
+PY := $(shell command -v python3 2>/dev/null || command -v python 2>/dev/null)
 
 export KERNEL_SRC ?= $(ROOT)/kernel/src
 export OUT        ?= $(KERNEL_OUT)
 
-BOOT_IMG     := $(BUILD)/boot.img
-BOOT_DEV_IMG := $(BUILD)/boot.img.dev
-INITRAMFS    := $(BUILD)/initramfs.cpio.gz
+BOOT_IMG  := $(BUILD)/boot.img
+INITRAMFS := $(BUILD)/initramfs.cpio.gz
 
-.PHONY: all test check boot boot-dev trim sizes clean help toolchain rootfs rootfs-dry
+.PHONY: all test check boot boot-dev trim sizes clean help toolchain \
+        rootfs rootfs-dry doctor release docker-test
 
 all: test
 
 help:
-	@sed -n '1,16p' Makefile
+	@sed -n '2,20p' Makefile
 
 test:
 	@sh tests/run.sh
 
+doctor:
+	@$(PY) tools/cronos.py doctor
+
 check:
 	@bash kernel/build.sh --check
-	@tools/mkinitramfs.sh --dry-run
+	@bash tools/mkinitramfs.sh --dry-run
 
 toolchain:
+	@echo "python:    $(PY)"
 	@echo "cross gcc: $(shell command -v aarch64-linux-gnu-gcc || echo MISSING)"
-	@echo "python3:   $(shell python3 -V 2>&1)"
-	@echo "dtc:       $(shell command -v dtc || echo 'not needed, tools/patch-dtb.py is self-contained')"
+	@echo "dtc:       $(shell command -v dtc || echo 'optional, tests only')"
+	@echo "mksquashfs:$(shell command -v mksquashfs || echo MISSING)"
 
 boot:
 	@mkdir -p $(BUILD)
@@ -57,19 +75,26 @@ trim:
 
 $(INITRAMFS):
 	@mkdir -p $(BUILD)
-	@tools/mkinitramfs.sh --out $(INITRAMFS)
+	@bash tools/mkinitramfs.sh --out $(INITRAMFS)
 
 initramfs: $(INITRAMFS)
 
 rootfs:
-	@$(ROOT)/tools/mkrootfs.sh
+	@bash tools/mkrootfs.sh
 
 rootfs-dry:
-	@$(ROOT)/tools/mkrootfs.sh --dry-run
+	@bash tools/mkrootfs.sh --dry-run
 
 sizes:
-	@python3 tools/report-sizes.py $(BUILD)
+	@$(PY) tools/report-sizes.py $(BUILD)
+
+release:
+	@$(PY) tools/cronos.py release
+
+# The Linux-only steps without a Linux host.
+docker-test:
+	@$(PY) tools/cronos.py docker test
 
 clean:
-	@rm -rf $(BUILD)
-	@echo "removed $(BUILD) (kernel source in kernel/src is kept; 'make distclean-src' removes it)"
+	@$(PY) -c "import shutil,os; [shutil.rmtree(p, True) for p in ('build','dist')]"
+	@echo "removed build/ and dist/ (kernel source in kernel/src is kept)"

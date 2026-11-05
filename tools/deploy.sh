@@ -34,6 +34,18 @@ DRYRUN=$((1 - CONFIRM))
 
 log() { printf '[deploy] %s\n' "$*"; }
 die() { printf '[deploy] REFUSED: %s\n' "$*" >&2; exit 1; }
+
+# This runs on the host with the cable, which is very often a Mac or Windows
+# laptop: stat -c is GNU, stat -f is BSD/macOS.
+fsize() {
+    stat -c%s "$1" 2>/dev/null || stat -f%z "$1" 2>/dev/null || \
+        wc -c <"$1" | tr -d ' '
+}
+if [ -z "${PY:-}" ]; then
+    if command -v python3 >/dev/null 2>&1; then PY=python3
+    elif command -v python >/dev/null 2>&1; then PY=python
+    else die "no python3/python on PATH (needed to validate boot images)"; fi
+fi
 run() {
     if [ "$DRYRUN" = "1" ]; then
         printf '[dry-run] %s\n' "$*"
@@ -65,9 +77,9 @@ boot)
     IMG=${1:-}
     [ -n "$IMG" ] || die "usage: deploy.sh boot <boot.img> [--yes]"
     [ -f "$IMG" ] || die "$IMG does not exist"
-    SIZE=$(stat -c%s "$IMG")
+    SIZE=$(fsize "$IMG")
     [ "$SIZE" -le "$BOOT_PART_BYTES" ] || die "$IMG is $SIZE bytes; p9 is 16 MB. LK will not boot it."
-    python3 "$ROOT/tools/mkbootimg.py" info "$IMG" | sed 's/^/  /' || die "not a valid boot image"
+    "$PY" "$ROOT/tools/mkbootimg.py" info "$IMG" | sed 's/^/  /' || die "not a valid boot image"
     cat <<'EOF'
 
   THIS WRITES THE boot PARTITION (p9). Before proceeding:
@@ -92,7 +104,7 @@ store)
     [ -n "$IMG" ] && [ -n "$SLOT" ] || die "usage: deploy.sh store <root.squashfs> <a|b> [--yes]"
     [ -f "$IMG" ] || die "$IMG does not exist"
     case "$SLOT" in a|b) : ;; *) die "slot must be a or b" ;; esac
-    SIZE=$(stat -c%s "$IMG")
+    SIZE=$(fsize "$IMG")
     [ "$SIZE" -gt 0 ] || die "empty image"
     log "pushing $IMG ($SIZE bytes) to slot $SLOT"
     need_adb

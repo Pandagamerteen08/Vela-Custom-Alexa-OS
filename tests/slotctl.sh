@@ -11,6 +11,10 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 BIN=${BIN:-$ROOT/build/slotctl}
 FAILS=0
 CHECKS=0
+# TMPDIR is unset on some hosts; /tmp does not exist on native Windows.
+TMPBASE=${TMPDIR:-/tmp}
+OUT_FILE="$TMPBASE/slotctl.out"
+ERR_FILE="$TMPBASE/slotctl.err"
 
 fail() { echo "FAIL: $*"; FAILS=$((FAILS + 1)); }
 ok()   { CHECKS=$((CHECKS + 1)); }
@@ -21,22 +25,22 @@ ok()   { CHECKS=$((CHECKS + 1)); }
 expect_rc() {
     rc_want=$1; shift
     rc_desc=$1; shift
-    "$@" >/tmp/slotctl.out 2>/tmp/slotctl.err
+    "$@" >"$OUT_FILE" 2>"$ERR_FILE"
     rc_got=$?
     if [ "$rc_got" -eq "$rc_want" ]; then
         ok
     else
-        fail "$rc_desc: exit $rc_got, wanted $rc_want"; sed 's/^/    /' /tmp/slotctl.err
+        fail "$rc_desc: exit $rc_got, wanted $rc_want"; sed 's/^/    /' "$ERR_FILE"
     fi
 }
 
 expect_out() {
     out_desc=$1
     out_needle=$2
-    if grep -q -- "$out_needle" /tmp/slotctl.out; then
+    if grep -q -- "$out_needle" "$OUT_FILE"; then
         ok
     else
-        fail "$out_desc: output missing '$out_needle'"; sed 's/^/    /' /tmp/slotctl.out
+        fail "$out_desc: output missing '$out_needle'"; sed 's/^/    /' "$OUT_FILE"
     fi
 }
 
@@ -44,11 +48,11 @@ mkdir -p "$ROOT/build"
 if [ ! -x "$BIN" ] || [ "$ROOT/src/slotctl/slotctl.c" -nt "$BIN" ]; then
     echo "building $BIN"
     if ! cc -O2 -std=c11 -Wall -Wextra -Werror -static -o "$BIN" \
-            "$ROOT/src/slotctl/slotctl.c" 2>/tmp/slotctl-cc.err; then
+            "$ROOT/src/slotctl/slotctl.c" 2>"$ERR_FILE"; then
         echo "  static link failed, retrying dynamically"
         if ! cc -O2 -std=c11 -Wall -Wextra -Werror -o "$BIN" \
-                "$ROOT/src/slotctl/slotctl.c" 2>/tmp/slotctl-cc.err; then
-            echo "FAIL: cannot compile slotctl.c"; cat /tmp/slotctl-cc.err; exit 1
+                "$ROOT/src/slotctl/slotctl.c" 2>"$ERR_FILE"; then
+            echo "FAIL: cannot compile slotctl.c"; cat "$ERR_FILE"; exit 1
         fi
     fi
 fi
@@ -99,19 +103,19 @@ expect_out "committed B" "active=B trials=255"
 
 # 8. corrupt copy 0 only: copy 1 must still be usable
 cp "$TMP/slot.ptr" "$TMP/pristine"
-printf 'XXXX' | dd of="$TMP/slot.ptr" bs=1 count=4 conv=notrunc status=none
+printf 'XXXX' | dd of="$TMP/slot.ptr" bs=1 count=4 conv=notrunc 2>/dev/null
 expect_rc 0 "get with copy 0 corrupt" "$BIN" get
 expect_out "fell back to copy 1" "valid=0,1"
 cp "$TMP/pristine" "$TMP/slot.ptr"
 
 # 9. corrupt *both* copies -> exit 2
-printf 'XXXX' | dd of="$TMP/slot.ptr" bs=1 count=4 conv=notrunc status=none
-printf 'XXXX' | dd of="$TMP/slot.ptr" bs=1 seek=2048 count=4 conv=notrunc status=none
+printf 'XXXX' | dd of="$TMP/slot.ptr" bs=1 count=4 conv=notrunc 2>/dev/null
+printf 'XXXX' | dd of="$TMP/slot.ptr" bs=1 seek=2048 count=4 conv=notrunc 2>/dev/null
 expect_rc 2 "both copies corrupt" "$BIN" get
 
 # 10. a record truncated to 64 bytes keeps only copy 0; wipe that and it's gone
-dd if=/dev/zero of="$TMP/slot.ptr" bs=1 count=0 seek=64 status=none 2>/dev/null
-printf 'XXXX' | dd of="$TMP/slot.ptr" bs=1 count=4 conv=notrunc status=none
+dd if=/dev/zero of="$TMP/slot.ptr" bs=1 count=0 seek=64 2>/dev/null
+printf 'XXXX' | dd of="$TMP/slot.ptr" bs=1 count=4 conv=notrunc 2>/dev/null
 expect_rc 2 "short file, copy 0 corrupt" "$BIN" get
 
 # 11. both slots bad -> exit 3 (rescue), the state that must never loop.

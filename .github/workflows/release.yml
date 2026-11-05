@@ -1,0 +1,87 @@
+name: release
+
+# Pushing a tag is the whole procedure:
+#
+#   git tag -a v0.1.0 -m "0.1.0" && git push origin v0.1.0
+#
+# This builds the artifacts in the pinned container, packages them, and attaches
+# them to the GitHub Release for that tag, with checksums. No personal token is
+# involved: GITHUB_TOKEN is supplied per-run and the job only needs
+# contents:write.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "version to publish (e.g. 0.1.0)"
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: host checks must pass before anything is published
+        run: python tools/cronos.py test
+
+      - name: build image
+        run: docker build -t cronos-min-build .
+
+      - name: build rootfs (armv7) inside the container
+        # Best effort on a runner: apk needs the aarch64 keyring and a working
+        # binfmt. If it cannot run, the release still ships the docs and tools,
+        # and RELEASE.md says which artifacts are absent.
+        continue-on-error: true
+        run: |
+          docker run --rm --privileged -v "$PWD:/work" -w /work cronos-min-build \
+            bash -lc 'tools/mkrootfs.sh' || true
+
+      - name: kernel config sanity
+        run: |
+          docker run --rm --privileged -v "$PWD:/work" -w /work cronos-min-build \
+            bash -lc 'kernel/build.sh --check'
+
+      - name: package
+        id: pack
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [ -z "$VERSION" ] || [ "$VERSION" = "$GITHUB_REF_NAME" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+          if [ -z "$VERSION" ]; then VERSION="0.0.0-$(git rev-parse --short HEAD)"; fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          python tools/cronos.py release --version "$VERSION"
+
+      - name: upload to the release page
+        uses: softprops/action-gh-release@v2
+        with:
+          name: cronos-min ${{ steps.pack.outputs.version }}
+          tag_name: ${{ github.ref_name }}
+          draft: false
+          prerelease: true
+          generate_release_notes: true
+          body_path: dist/cronos-min-${{ steps.pack.outputs.version }}/RELEASE.md
+          files: |
+            dist/cronos-min-*.tar.gz
+            dist/cronos-min-*.zip
+            dist/SHA256SUMS.txt
+            dist/release.json
+
+      - name: keep the packs as workflow artifacts too
+        uses: actions/upload-artifact@v4
+        with:
+          name: cronos-min-${{ steps.pack.outputs.version }}
+          path: dist/cronos-min-*
+          if-no-files-found: error

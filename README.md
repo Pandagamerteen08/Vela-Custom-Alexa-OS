@@ -89,6 +89,8 @@ Step-by-step build: **[docs/BUILD.md](docs/BUILD.md)**. Flashing and recovery:
 | Package list contract (every package justified) | **passes**, enforced in CI-able form |
 | initramfs → cpio → gzip → boot.img end to end | **passes**, with a synthetic kernel |
 | Arch guard rejects an x86 busybox in the initramfs | **passes** (by design) |
+| Host tooling on Linux, macOS and Windows | **runs** — `python tools/cronos.py test`, CI matrix in `.github/workflows/ci.yml` |
+| Release packaging and checksums | **passes** — `tools/cronos.py release`, verified in CI |
 | **Kernel compile** | **not run** — needs an aarch64 toolchain and a 2 GB tree |
 | **Anything on hardware** | **not done** |
 
@@ -97,9 +99,29 @@ All `(est.)` size figures in the design document stay estimates until
 
 ---
 
+## Install a release
+
+Every tagged build gets a pack on the [Releases](../../releases) page:
+`cronos-min-<version>.tar.gz`, the same tree as `.zip`, `SHA256SUMS.txt`, and a
+generated `RELEASE.md` describing exactly which artifacts that build contains.
+
+```sh
+tar xzf cronos-min-0.1.0.tar.gz && cd cronos-min-0.1.0
+sha256sum -c SHA256SUMS.txt        # Linux
+shasum -a 256 -c SHA256SUMS.txt    # macOS
+less RELEASE.md                    # images present, install steps, known limits
+```
+
+Releases are marked pre-release on purpose: no build here has booted on a unit
+yet, and the pack says so rather than implying otherwise.
+
 ## Quickstart
 
 ```sh
+python tools/cronos.py doctor    # what this machine can build (any OS)
+python tools/cronos.py test      # every host check this host can run (any OS)
+python tools/cronos.py release    # package dist/ for a release (any OS)
+
 make test        # host checks: no device, no root, no toolchain
 make check       # toolchain + source sanity
 make toolchain   # what is installed
@@ -120,6 +142,31 @@ Requirements that will bite you first:
   armv7. An armv7 busybox there fails with `Exec format error` before any console
   exists, which is the least diagnosable failure this board has.
 
+### Runs on your host too
+
+| | Linux | macOS | Windows | Raspberry Pi (64-bit) |
+|---|---|---|---|---|
+| host tests, boot image, DTB, cpio, kconfig, release pack | yes | yes | yes | yes |
+| `slotctl` A/B tests | yes | yes (Xcode CLT) | container | yes |
+| flash over USB | yes | yes | yes | yes |
+| kernel + rootfs build | yes | container | container | yes |
+
+The top two rows need no root, no Docker and no device: `python tools/cronos.py
+test`. The Linux-only steps are the ones that genuinely need Linux (`chroot`,
+`binfmt_misc`, a cross toolchain), and `./Dockerfile` is the supported way to run
+them from macOS or Windows:
+
+```sh
+python tools/cronos.py docker rootfs         # or: kernel, kernel-check, test, shell
+docker run --rm --privileged -v "$PWD:/work" -w /work cronos-min-build \
+    bash -lc 'tools/mkrootfs.sh && kernel/build.sh'
+```
+
+Per-OS instructions, Pi-specific footguns (2 GB RAM + `-j$(nproc)` = an OOM during
+the link) and the macOS case-sensitivity trap: **[docs/platforms.md](docs/platforms.md)**.
+Release process: **[docs/RELEASE.md](docs/RELEASE.md)**. Wi-Fi pitfalls:
+**[docs/net.md](docs/net.md)**.
+
 ---
 
 ## Repository layout
@@ -134,7 +181,10 @@ rootfs/packages.txt         THE package list; every line carries its justificati
 rootfs/overlay/             inittab (2 variants), init.d, wpa_supplicant template, asound.conf
 src/slotctl/                A/B slot pointer: 16-byte dual records, CRC32, atomic rename
 tools/                      mkbootimg, patch-dtb, fdt, mkcpio, kconfig, packages,
-                            mkinitramfs, mkrootfs, deploy, measure, report-sizes
+                            mkinitramfs, mkrootfs, deploy, measure, report-sizes,
+                            cronos.py (cross-platform entry point)
+Dockerfile                  pinned Linux build env (GCC 10, QEMU, mksquashfs)
+.github/workflows/           ci.yml (Linux/macOS/Windows + container), release.yml
 tests/                      host tests for every tool, the state machine and the packer
 ```
 
@@ -182,9 +232,11 @@ the first flash ([docs/BUILD.md](docs/BUILD.md) step 5).
 
 ## License
 
-No license file yet — add one before publishing. The tools and userspace here are
-original work and MIT would be the simple choice; the kernel tree this builds
-(`amazon-oss/android_kernel_amazon_mt8163`) stays GPL-2.0 and is cloned, never vendored.
+MIT for everything in this repository — see [LICENSE](LICENSE). The note at the
+bottom of that file matters if you plan to redistribute an image: the kernel tree
+this builds (`amazon-oss/android_kernel_amazon_mtk8163`) is GPL-2.0 and is cloned
+at build time, never vendored, and Amazon's bootloader, TEE and preloader are not
+redistributed here in any form.
 
 ## Credits
 

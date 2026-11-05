@@ -17,7 +17,11 @@ experiment with a known rollback.
 
 ## Step 0 — Host prerequisites
 
-Ubuntu/Debian names; substitute for your distro.
+Ubuntu/Debian names; substitute for your distro. On macOS or Windows, steps 0-2
+work natively and the kernel/rootfs steps run in the container from
+`./Dockerfile` — see `docs/platforms.md` for the per-OS commands and the Windows
+line-ending trap. `python tools/cronos.py doctor` tells you which of those two
+worlds the machine you are on belongs to.
 
 ```sh
 sudo apt install build-essential git python3 bc bison flex libssl-dev \

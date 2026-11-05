@@ -1,0 +1,58 @@
+name: ci
+
+# The cross-platform promise is only worth what CI proves, so the host-only
+# suite runs on all three operating systems. The kernel and rootfs steps are
+# Linux-only by nature (chroot, binfmt, cross toolchain) and are exercised in
+# the container job instead.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  host-checks:
+    name: host checks (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: doctor
+        run: python tools/cronos.py doctor
+
+      - name: host checks
+        run: python tools/cronos.py test
+
+      - name: release packaging works from a bare tree
+        run: python tools/cronos.py release --version 0.0.0-ci
+
+      - name: pack contains the docs and the checksums verify
+        shell: bash
+        run: |
+          ls -l dist
+          cd dist && cd "cronos-min-0.0.0-ci" && \
+            if command -v sha256sum >/dev/null; then sha256sum -c SHA256SUMS.txt; \
+            else shasum -a 256 -c SHA256SUMS.txt; fi
+
+  container:
+    name: container build (rootfs + kernel check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: build image
+        run: docker build -t cronos-min-build .
+      - name: rootfs + kernel sanity inside the container
+        run: |
+          docker run --rm --privileged -v "$PWD:/work" -w /work cronos-min-build \
+            bash -lc 'kernel/build.sh --check && tools/mkrootfs.sh --dry-run'

@@ -19,7 +19,7 @@
 #   KERNEL_SRC   default ./kernel/src
 #   OUT          default ./build/kernel
 #   CROSS_COMPILE default aarch64-linux-gnu-
-#   JOBS         default nproc
+#   JOBS         default: number of CPUs
 #   USE_CLANG=1  build with AOSP clang instead of GCC
 #
 # Toolchain warning worth taking seriously: this is Linux 4.9. GCC >= 12 rejects
@@ -32,8 +32,26 @@ ROOT=$(cd "$HERE/.." && pwd)
 KERNEL_SRC=${KERNEL_SRC:-$ROOT/kernel/src}
 OUT=${OUT:-$ROOT/build/kernel}
 CROSS_COMPILE=${CROSS_COMPILE:-aarch64-linux-gnu-}
-JOBS=${JOBS:-$(nproc 2>/dev/null || echo 4)}
 DEFCONFIG=${DEFCONFIG:-cronos_defconfig}
+
+# --- portability ----------------------------------------------------------
+# This is expected to run on Debian/Ubuntu, Alpine, Fedora, a Raspberry Pi, and
+# on macOS or Git Bash for the non-kernel parts. None of nproc, stat -c or the
+# name python3 exist everywhere, so probe once instead of assuming.
+if [ -z "${PY:-}" ]; then
+    if command -v python3 >/dev/null 2>&1; then PY=python3
+    elif command -v python >/dev/null 2>&1; then PY=python
+    else printf '[build] error: no python3/python on PATH\n' >&2; exit 1; fi
+fi
+_cpus() {
+    nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || \
+        sysctl -n hw.ncpu 2>/dev/null || echo 4
+}
+fsize() {
+    stat -c%s "$1" 2>/dev/null || stat -f%z "$1" 2>/dev/null || \
+        wc -c <"$1" | tr -d ' '
+}
+JOBS=${JOBS:-$(_cpus)}
 REPO=${KERNEL_REPO:-https://github.com/amazon-oss/android_kernel_amazon_mtk8163}
 BRANCH=${KERNEL_BRANCH:-cronos/lineage-18.1}
 
@@ -112,14 +130,14 @@ FRAGS=(--fragment "$ROOT/kernel/cronos.fragment")
 [ "$DEV" = "1" ] && FRAGS+=(--fragment "$ROOT/kernel/cronos-dev.fragment")
 
 log "applying fragments: ${FRAGS[*]}"
-python3 "$ROOT/tools/kconfig.py" apply --config "$OUT/.config" "${FRAGS[@]}" -o "$OUT/.config.new"
+"$PY" "$ROOT/tools/kconfig.py" apply --config "$OUT/.config" "${FRAGS[@]}" -o "$OUT/.config.new"
 mv "$OUT/.config.new" "$OUT/.config"
 
 log "olddefconfig (may resolve dependencies; assertions run after)"
 make -s ARCH=arm64 O="$OUT" "${MAKE_VARS[@]}" olddefconfig
 
 log "asserting required symbols"
-if ! python3 "$ROOT/tools/kconfig.py" check --config "$OUT/.config" \
+if ! "$PY" "$ROOT/tools/kconfig.py" check --config "$OUT/.config" \
         --assert "$ROOT/kernel/cronos.assert"; then
     die "config assertions failed. A symbol you asked for was overridden by a
      dependency. Inspect with: tools/kconfig.py diff --config $OUT/.config --other <old>"
@@ -149,7 +167,7 @@ fi
 
 DTB_PATCHED="$OUT/mt8163-cronos-patched.dtb"
 log "patching DTB: $(basename "$DTB_SRC")"
-python3 "$ROOT/tools/patch-dtb.py" "$DTB_SRC" -o "$DTB_PATCHED" --no-mic-downmix
+"$PY" "$ROOT/tools/patch-dtb.py" "$DTB_SRC" -o "$DTB_PATCHED" --no-mic-downmix
 
 # --- 6. initramfs ---------------------------------------------------------
 INITRAMFS="$ROOT/build/initramfs.cpio.gz"
@@ -163,7 +181,7 @@ fi
 # --- 7. boot.img ----------------------------------------------------------
 KERNEL_FINAL="$OUT/Image.gz+dtb"
 cat "$IMG" "$DTB_PATCHED" > "$KERNEL_FINAL"
-log "appended DTB: $(stat -c%s "$IMG") + $(stat -c%s "$DTB_PATCHED") bytes"
+log "appended DTB: $(fsize "$IMG") + $(fsize "$DTB_PATCHED") bytes"
 
 CMDLINE_FILE="$ROOT/kernel/cmdline.txt"
 if [ "$DEV" = "1" ]; then
@@ -172,7 +190,7 @@ else
     BOOT_OUT="$ROOT/build/boot.img"
 fi
 
-python3 "$ROOT/tools/mkbootimg.py" pack \
+"$PY" "$ROOT/tools/mkbootimg.py" pack \
     --kernel "$KERNEL_FINAL" \
     --ramdisk "$INITRAMFS" \
     --cmdline-file "$CMDLINE_FILE" \

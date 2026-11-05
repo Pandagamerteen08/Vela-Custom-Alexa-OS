@@ -1,5 +1,6 @@
 # build outputs
 build/
+dist/
 
 # kernel source is cloned, not vendored (2 GB of history)
 kernel/src/

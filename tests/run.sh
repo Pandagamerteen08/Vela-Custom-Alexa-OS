@@ -13,6 +13,13 @@ cd "$ROOT" || exit 1
 WHAT=${1:-all}
 RC=0
 
+# python3 is not called python3 on every host (Windows, some macOS setups).
+if [ -z "${PY:-}" ]; then
+    if command -v python3 >/dev/null 2>&1; then PY=python3
+    elif command -v python >/dev/null 2>&1; then PY=python
+    else echo "no python3/python on PATH" >&2; exit 1; fi
+fi
+
 if command -v dtc >/dev/null 2>&1; then
     echo "== dtc available: $(dtc --version) (cross-checks the FDT patcher)"
 else
@@ -21,7 +28,7 @@ fi
 
 run_tools() {
     echo "== python unit tests"
-    if python3 -m unittest discover -s tests -p 'test_*.py' -v; then
+    if "$PY" -m unittest discover -s tests -p 'test_*.py' -v; then
         echo "   tools: PASS"
     else
         echo "   tools: FAIL"; RC=1
