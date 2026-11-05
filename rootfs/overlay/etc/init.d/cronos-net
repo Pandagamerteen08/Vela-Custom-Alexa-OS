@@ -1,0 +1,48 @@
+#!/sbin/openrc-run
+# cronos-net — bring up wlan0 with wpa_supplicant 2.9, no dhcpcd, no D-Bus.
+#
+# The daemon normally spawns and owns the supplicant (so it can drive reconnects
+# from cfg80211 events). This script exists for the case where the daemon is not
+# running yet: bring-up, debugging, and a factory network check from the console.
+#
+# Deliberately not enabled by default in the runlevel: one owner for the
+# supplicant is better than two, and the daemon is the better owner.
+
+description="cronos Wi-Fi (wpa_supplicant + udhcpc)"
+
+depend() {
+    need cronos-boot
+    provide net
+}
+
+start() {
+    ebegin "starting wlan0"
+    if ! ip link show wlan0 >/dev/null 2>&1; then
+        ewarn "no wlan0 (mt76x8_wlan did not load)"
+        eend 1
+        return 1
+    fi
+    mkdir -p /run/wpa_supplicant
+
+    # -u: don't touch the interface state behind our back
+    # -Dnl80211: the vendor fullmac is cfg80211, not wext
+    # -s: log to syslog; there is no syslogd, so it goes to the console ring
+    # No -B: we want the pid, so we can stop it deterministically.
+    start-stop-daemon --start --background --make-pidfile \
+        --pidfile /run/wpa_supplicant.pid \
+        --exec /usr/sbin/wpa_supplicant -- \
+        -u -Dnl80211 -i wlan0 -c /etc/wpa_supplicant.conf
+
+    # DHCP: busybox udhcpc is transient (~200 KB for a second), not a daemon.
+    start-stop-daemon --start --background --make-pidfile \
+        --pidfile /run/udhcpc.pid \
+        --exec /sbin/udhcpc -- -i wlan0 -b -q -t 5 -T 3
+    eend 0
+}
+
+stop() {
+    ebegin "stopping wlan0"
+    start-stop-daemon --stop --pidfile /run/udhcpc.pid 2>/dev/null
+    start-stop-daemon --stop --pidfile /run/wpa_supplicant.pid 2>/dev/null
+    eend 0
+}

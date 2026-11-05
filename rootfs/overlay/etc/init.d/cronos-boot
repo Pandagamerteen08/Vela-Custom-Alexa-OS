@@ -1,0 +1,61 @@
+#!/sbin/openrc-run
+# cronos-boot — everything that must be true before cronosd touches hardware.
+#
+# Deliberately not a pile of services: each `start` here is one line that either
+# works or produces a dmesg line. Anything that can fail without stopping the UI
+# is a warning, not a dependency.
+
+description="cronos-min one-shot boot setup"
+
+depend() {
+    need localmount
+    after modules
+    before cronosd
+}
+
+start() {
+    ebegin "cronos boot setup"
+
+    # 1. Modules. wlan comes from the vendor tree; if it fails the device still
+    #    boots and the UI says "no network" instead of hanging.
+    for m in mt76x8_wlan; do
+        modprobe "$m" 2>/dev/null || ewarn "modprobe $m failed (no Wi-Fi)"
+    done
+
+    # 2. Hostname: stable, derived from the SoC id, no random hostname daemon.
+    if [ -r /sys/devices/soc0/serial_number ]; then
+        HN="cronos-$(cat /sys/devices/soc0/serial_number | tail -c 7)"
+        [ -n "$HN" ] && echo "$HN" > /etc/hostname && hostname "$HN"
+    fi
+
+    # 3. Clock. No RTC battery worth trusting on this board, so sync once and
+    #    let it drift; the UI needs an approximate time, not NTP discipline.
+    ntpd -q -n -p pool.ntp.org >/dev/null 2>&1 || ewarn "no NTP (clock will be wrong)"
+
+    # 4. Backlight to a safe level before anything paints. 0 at boot is a black
+    #    screen that looks exactly like a kernel failure.
+    if [ -w /sys/class/leds/lcd-backlight/brightness ]; then
+        echo 120 > /sys/class/leds/lcd-backlight/brightness || ewarn "backlight write failed"
+    fi
+
+    # 5. The mixer state that the audio bring-up depends on. These three are not
+    #    cosmetic — see docs/cronos-min-design.md §2.7:
+    #      Speaker Safe Mode A attenuates ~30 dB if left at 1
+    #      Ext_Speaker_Amp_Switch toggles the amp reset line (gpio-392)
+    #    Never write the amp switch. Only clear the safe-mode cap.
+    if command -v amixer >/dev/null 2>&1; then
+        amixer -q sset 'Speaker Safe Mode A' 0 2>/dev/null || true
+        # Do NOT touch Ext_Speaker_Amp_Switch.
+    fi
+
+    # 6. Temp dirs that some libc paths expect even though /tmp is tmpfs.
+    mkdir -p /var/log /var/run /run/lock
+    eend 0
+}
+
+stop() {
+    ebegin "cronos shutdown"
+    # Let the daemon flush /data before the filesystem goes read-only.
+    sync
+    eend 0
+}

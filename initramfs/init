@@ -1,0 +1,156 @@
+#!/bin/sh
+# cronos-min initramfs init — runs as PID 1 on the *arm64* kernel.
+#
+# Job, in order: find the store partition, ask slotctl which slot to boot,
+# mount it read-only, hand over to the rootfs, and free these pages with
+# switch_root. If anything is wrong, stay here and be reachable — a device that
+# always answers is worth more than one that always boots.
+#
+# Nothing here needs /proc/sys mounted before use, but mount them anyway: busybox
+# applets and any diagnostic shell expect them.
+set -u
+PATH=/bin:/sbin:/usr/bin:/usr/sbin
+export PATH
+
+STORE_DEV=${STORE_DEV:-/dev/mmcblk0p12}
+DATA_DEV=${DATA_DEV:-/dev/mmcblk0p16}
+STORE=/store
+NEWROOT=/newroot
+SLOT_TIMEOUT=10
+
+log() { printf 'cronos-init: %s\n' "$*"; }
+fatal() { printf 'cronos-init: FATAL: %s\n' "$*" >&2; }
+
+mount -t proc     none /proc   2>/dev/null
+mount -t sysfs    none /sys    2>/dev/null
+mount -t devtmpfs none /dev    2>/dev/null || \
+    mount -t tmpfs none /dev   2>/dev/null
+mkdir -p /dev/pts /dev/shm
+mount -t devpts none /dev/pts  2>/dev/null
+mount -t tmpfs  none /dev/shm  2>/dev/null
+
+# The eMMC partitions are usually already present, but sd/mmc probing is
+# asynchronous on this kernel, and a boot loop caused by a 200 ms race is the
+# most infuriating failure there is.
+wait_for() {
+    dev=$1; n=0
+    while [ ! -b "$dev" ]; do
+        n=$((n + 1))
+        if [ "$n" -ge "$SLOT_TIMEOUT" ]; then
+            return 1
+        fi
+        sleep 1
+    done
+    return 0
+}
+
+rescue() {
+    fatal "$1"
+    log "entering rescue shell (PID 1 stays alive)"
+    log "store=$STORE_DEV data=$DATA_DEV; serial console is ttyMT0 @ 921600"
+    log "commands: slotctl -f $STORE/slot.ptr get | boot | commit | pending"
+    log "          ls $STORE/slots/*/ ; dmesg | tail"
+    while :; do
+        /bin/sh -i </dev/console >/dev/console 2>&1 || sleep 2
+    done
+}
+
+mkdir -p "$STORE" "$NEWROOT"
+
+if ! wait_for "$STORE_DEV"; then
+    rescue "$STORE_DEV never appeared"
+fi
+
+if ! mount -t ext4 -o rw,noatime "$STORE_DEV" "$STORE"; then
+    # A dirty ext4 from a power cut is the common case. Try to repair once,
+    # then give up rather than looping.
+    log "mount failed; attempting e2fsck -p"
+    e2fsck -p "$STORE_DEV" >/dev/console 2>&1 || true
+    mount -t ext4 -o rw,noatime "$STORE_DEV" "$STORE" || rescue "cannot mount $STORE_DEV"
+fi
+log "store mounted from $STORE_DEV"
+
+SLOT_PTR="$STORE/slot.ptr"
+export SLOT_PTR
+
+# slotctl exit codes are the contract: 0 usable, 2 no record, 3 both slots bad.
+if ! command -v slotctl >/dev/null 2>&1; then
+    rescue "slotctl missing from the initramfs (bug in mkinitramfs.sh)"
+fi
+
+slotctl boot
+RC=$?
+case "$RC" in
+    0) : ;;
+    2) log "no slot record; assuming a fresh install"
+       # Fresh install: if exactly one slot image exists, use it and create the
+       # record. If none, there is nothing to boot.
+       if [ -f "$STORE/slots/a/root.squashfs" ] && [ ! -f "$STORE/slots/b/root.squashfs" ]; then
+           slotctl init || rescue "cannot create slot record"
+       elif [ -f "$STORE/slots/b/root.squashfs" ] && [ ! -f "$STORE/slots/a/root.squashfs" ]; then
+           slotctl init && slotctl pending && slotctl commit || \
+               rescue "cannot initialise slot B"
+       else
+           rescue "no usable slot image in $STORE/slots"
+       fi
+       ;;
+    3) rescue "both slots are marked bad" ;;
+    *) rescue "slotctl failed with exit $RC" ;;
+esac
+
+ACTIVE=$(slotctl get 2>/dev/null | sed -n 's/.*active=\([AB]\).*/\1/p')
+[ -n "$ACTIVE" ] || ACTIVE=A
+SLOT_DIR="$STORE/slots/$(echo "$ACTIVE" | tr 'AB' 'ab')"
+IMAGE="$SLOT_DIR/root.squashfs"
+
+log "booting slot $ACTIVE from $IMAGE"
+if [ ! -f "$IMAGE" ]; then
+    # The pointer chose a slot whose image is gone: try the other one before
+    # dropping to rescue, and do not spend a trial on it.
+    OTHER=A; [ "$ACTIVE" = "A" ] && OTHER=B
+    ALT="$STORE/slots/$(echo "$OTHER" | tr 'AB' 'ab')/root.squashfs"
+    if [ -f "$ALT" ]; then
+        log "slot $ACTIVE image missing; falling back to slot $OTHER"
+        SLOT_DIR="$STORE/slots/$(echo "$OTHER" | tr 'AB' 'ab')"
+        IMAGE="$ALT"
+    else
+        rescue "no root.squashfs on either slot"
+    fi
+fi
+
+if ! mount -t squashfs -o loop,ro "$IMAGE" "$NEWROOT"; then
+    rescue "cannot mount $IMAGE"
+fi
+log "rootfs mounted (read-only squashfs)"
+
+# /var /run /tmp are RAM: the rootfs is immutable, so anything writable lives
+# here and is gone at reboot by design. The directories exist in the image.
+mkdir -p "$NEWROOT/var" "$NEWROOT/run" "$NEWROOT/tmp" "$NEWROOT/data"
+mount -t tmpfs -o size=2M,mode=0755,nosuid,nodev none "$NEWROOT/var" || rescue "tmpfs /var"
+mount -t tmpfs -o size=1M,mode=0755,nosuid,nodev none "$NEWROOT/run" || rescue "tmpfs /run"
+mount -t tmpfs -o size=1M,mode=1777,nosuid,nodev none "$NEWROOT/tmp" || rescue "tmpfs /tmp"
+
+# /data is the only persistent user area. A failure here is not fatal: the UI
+# still works, it just cannot remember anything, and cronosd reports that.
+if wait_for "$DATA_DEV" && mount -t ext4 -o rw,noatime,nosuid,nodev "$DATA_DEV" "$NEWROOT/data"; then
+    log "data mounted from $DATA_DEV"
+else
+    log "warning: /data unavailable; starting read-only"
+fi
+
+# The rootfs is squashfs: we cannot create these, they must be in the image.
+for d in dev proc sys; do
+    [ -d "$NEWROOT/$d" ] || fatal "rootfs is missing /$d (bad image)"
+done
+mount --move /dev  "$NEWROOT/dev"  2>/dev/null || mount -t devtmpfs none "$NEWROOT/dev"
+mount --move /proc "$NEWROOT/proc" 2>/dev/null
+mount --move /sys  "$NEWROOT/sys"  2>/dev/null
+
+if [ ! -x "$NEWROOT/sbin/init" ]; then
+    rescue "rootfs has no /sbin/init"
+fi
+
+log "switch_root -> $NEWROOT/sbin/init"
+exec switch_root "$NEWROOT" /sbin/init
+fatal "switch_root returned; this should be impossible"
+rescue "switch_root failed"

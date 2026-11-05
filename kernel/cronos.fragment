@@ -1,0 +1,62 @@
+# cronos-min base kernel fragment — apply to the LineageOS cronos config.
+#
+# Everything here is either (a) needed to boot a Linux userland at all or
+# (b) needed by the A/B squashfs slot design. Nothing here is speculative:
+# every symbol is in the vendor 4.9.337 tree.
+#
+# Apply with:  tools/kconfig.py apply --config out/.config \
+#                 --fragment kernel/cronos.fragment --out out/.config
+# Then:        make olddefconfig   (and re-run kconfig.py check afterwards)
+
+# --- initramfs support -----------------------------------------------------
+# The vendor config already unpacks gzip initramfs; make sure, because a
+# boot.img whose ramdisk does not decompress fails with zero output on panel.
+CONFIG_BLK_DEV_INITRD=y
+CONFIG_RD_GZIP=y
+CONFIG_RD_LZ4=y
+
+# --- the slot filesystem ---------------------------------------------------
+# TECHO5 uses ext4 directories because this kernel has no squashfs at all.
+# That single missing symbol is most of the 130 MB -> ~8 MB difference.
+CONFIG_SQUASHFS=y
+CONFIG_SQUASHFS_XZ=y
+CONFIG_SQUASHFS_LZ4=y
+CONFIG_SQUASHFS_FILE_DIRECT=y
+
+# --- mounting images: loop device for root.squashfs, ext4 for /store /data -
+CONFIG_BLK_DEV_LOOP=y
+CONFIG_BLK_DEV_LOOP_MIN_COUNT=4
+CONFIG_EXT4_FS=y
+CONFIG_EXT4_FS_POSIX_ACL=y
+CONFIG_EXT4_FS_SECURITY=y
+CONFIG_JBD2=y
+
+# --- /dev without udev -----------------------------------------------------
+# The LineageOS config leaves DEVTMPFS unset (Android's udev-equivalent does
+# the work there). With devtmpfs on, the kernel populates /dev itself and the
+# whole mdev coldplug race disappears from init.
+CONFIG_DEVTMPFS=y
+CONFIG_DEVTMPFS_MOUNT=y
+
+# --- tmpfs for /var /run /tmp ---------------------------------------------
+CONFIG_TMPFS=y
+CONFIG_TMPFS_POSIX_ACL=y
+
+# --- Bluetooth (off by default, but the driver must exist to probe) -------
+# mt76x8_bt only exposes /dev/stpbt (raw H4). HCI_VHCI plus a userspace bridge
+# is what makes bluez-optional tools possible; see docs.
+CONFIG_BT=y
+CONFIG_BT_HCIVHCI=y
+CONFIG_BT_RFCOMM=y
+CONFIG_BT_HIDP=y
+
+# --- size ----------------------------------------------------------------
+CONFIG_CC_OPTIMIZE_FOR_SIZE=y
+CONFIG_KERNEL_GZIP=y
+CONFIG_MODULE_SIG=n
+
+# --- make the kernel tell us what it is doing -----------------------------
+CONFIG_PRINTK=y
+CONFIG_BUG=y
+CONFIG_PANIC_ON_OOPS=n
+CONFIG_PANIC_TIMEOUT=0

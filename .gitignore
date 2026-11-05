@@ -1,0 +1,16 @@
+# build outputs
+build/
+
+# kernel source is cloned, not vendored (2 GB of history)
+kernel/src/
+dtb/*.dtb
+
+# python
+__pycache__/
+*.pyc
+
+# local configs and secrets — never commit a Wi-Fi PSK or a signing key
+.env
+*.key
+*.pem
+wifi.conf

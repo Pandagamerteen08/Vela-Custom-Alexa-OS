@@ -1,0 +1,29 @@
+# The rootfs package list — THE authoritative list.
+#
+# Rule (README §"Two rules that keep this small"): a line may only be added with
+# a one-sentence justification and a measured flash/RSS delta. The justification
+# goes on the SAME LINE; `tools/packages.py` enforces it and `mkrootfs.sh` fails
+# without it. (An earlier draft put the reasons on preceding lines, which is
+# friendlier to read and useless to a machine — the checker caught it.)
+#
+# Format:  <name>[=<pin>]   # justification
+# Everything else comes from Alpine's baselayout/busybox/musl trio.
+
+# --- base -----------------------------------------------------------------
+busybox   # 794 KiB: PID 1, the applet farm for the whole initramfs and rootfs, and the shell
+musl   # 650 KiB: the only libc; static linking everything would cost more flash than it saves
+
+openrc   # 308 KiB: dependency ordering + rc-status for two services; drop with --variant inittab if RAM is tight
+
+# --- network --------------------------------------------------------------
+wpa_supplicant=2.9-r6   # 2.0 MB: cfg80211 fullmac needs a supplicant; 2.10+ advertises RSN replay counters this driver lacks and every AP deauths (reason 2)
+libnl3   # 1.0 MB of netlink bindings: wpa_supplicant's -Dnl80211 backend links against it
+
+# --- audio ----------------------------------------------------------------
+alsa-lib   # 500 KiB: PCM ioctl bindings; we do not ship alsa-utils and do not load dmix
+
+# --- crypto ---------------------------------------------------------------
+mbedtls   # 600 KiB vs OpenSSL's 5.9 MB: one TLS client for the OTA manifest and the LAN server
+
+# --- runtime --------------------------------------------------------------
+libgcc   # 100 KiB: unwinder required by anything gcc-built against musl

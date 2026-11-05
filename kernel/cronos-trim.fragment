@@ -1,0 +1,82 @@
+# cronos-min TRIM fragment — opt-in, applied only with `build.sh --trim`.
+#
+# These are the removals that make the kernel small. They are NOT in the base
+# fragment because each one can plausibly break a vendor driver that quietly
+# selects it, and a kernel that does not boot costs an evening of serial-console
+# work. Apply, boot-test, keep. If the build fails or the panel stays dark,
+# remove the offending line and note it in docs/.
+#
+# Expected saving on a 4.9 MTK config: 2-3.5 MB of Image (before gzip), which
+# is 1-2 MB of boot.img.
+
+# --- debug infrastructure (the single biggest win) ------------------------
+-CONFIG_DEBUG_INFO
+-CONFIG_DEBUG_KERNEL
+-CONFIG_DEBUG_FS
+-CONFIG_FTRACE
+-CONFIG_FUNCTION_TRACER
+-CONFIG_KPROBES
+-CONFIG_UPROBES
+-CONFIG_PERF_EVENTS
+-CONFIG_MAGIC_SYSRQ
+-CONFIG_KALLSYMS_ALL
+-CONFIG_IKCONFIG
+-CONFIG_IKCONFIG_PROC
+-CONFIG_AUDIT
+-CONFIG_SECURITY_SELINUX
+-CONFIG_DETECT_HUNG_TASK
+-CONFIG_SCHED_DEBUG
+-CONFIG_LOCKDEP
+-CONFIG_PROVE_LOCKING
+-CONFIG_DEBUG_SPINLOCK
+-CONFIG_DEBUG_MUTEXES
+-CONFIG_DEBUG_ATOMIC_SLEEP
+-CONFIG_PROFILING
+-CONFIG_OPROFILE
+-CONFIG_KGDB
+
+# --- filesystems we will never mount -------------------------------------
+-CONFIG_F2FS_FS
+-CONFIG_XFS_FS
+-CONFIG_BTRFS_FS
+-CONFIG_NFS_FS
+-CONFIG_NFSD
+-CONFIG_CIFS
+-CONFIG_UDF_FS
+-CONFIG_ISO9660_FS
+-CONFIG_NTFS_FS
+-CONFIG_MSDOS_FS
+-CONFIG_VFAT_FS
+-CONFIG_EXFAT_FS
+-CONFIG_GFS2_FS
+-CONFIG_OCFS2_FS
+-CONFIG_REISERFS_FS
+-CONFIG_JFS_FS
+-CONFIG_9P_FS
+
+# --- block/storage layers that only Android needs ------------------------
+-CONFIG_SCSI
+-CONFIG_MD
+-CONFIG_DM_CRYPT
+-CONFIG_DM_SNAPSHOT
+-CONFIG_DM_THIN_PROVISIONING
+-CONFIG_USB_STORAGE
+-CONFIG_USB_UAS
+
+# --- DRM ----------------------------------------------------------------
+# There is no usable DRM path for this panel: mtkfb is an fbdev driver and the
+# vendor disp_mgr does not latch overlays. Removing the whole DRM subtree is
+# safe *if* nothing in the vendor tree selects it. This is the line most likely
+# to break the build; if it does, drop just this one.
+-CONFIG_DRM
+-CONFIG_DRM_MEDIATEK
+
+# --- sound codecs we do not have ---------------------------------------
+# Keep the ASOC core, the MTK AFE/DL1 platform driver and the two codecs this
+# board actually ships (MAX98396 or TAS5805M) plus the TLV320AIC3101 ADC.
+-CONFIG_SND_SOC_RT5616
+-CONFIG_SND_SOC_RT5651
+-CONFIG_SND_SOC_WM8960
+-CONFIG_SND_SOC_MAX98090
+-CONFIG_SND_SOC_TS3A227E
+-CONFIG_SND_SOC_MT6351

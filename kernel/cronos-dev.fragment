@@ -1,0 +1,42 @@
+# cronos-min DEV fragment — a separately flashable, debuggable kernel.
+#
+# Keep a dev-config boot.img in /store/boot/dev.img. When a prod build shows a
+# black panel and the device still responds to fastboot, this image plus a
+# serial console is what turns a mystery into a dmesg.
+#
+# Build it as a *second* output (build.sh --dev), never as the shipping kernel:
+# it is 3-4 MB bigger and it enables code paths we do not want reachable in
+# production.
+
+CONFIG_DEBUG_KERNEL=y
+CONFIG_DEBUG_INFO=y
+CONFIG_DEBUG_FS=y
+CONFIG_KALLSYMS=y
+CONFIG_KALLSYMS_ALL=y
+CONFIG_MAGIC_SYSRQ=y
+CONFIG_FTRACE=y
+CONFIG_DYNAMIC_DEBUG=y
+CONFIG_IKCONFIG=y
+CONFIG_IKCONFIG_PROC=y
+CONFIG_PANIC_TIMEOUT=5
+
+# Serial console. ttyMT0 is the MTK UART; 921600 is what the stock LK prints at
+# and what the pads (TP55 TX / TP56 GND on the mainboard) are wired for.
+CONFIG_SERIAL_8250=y
+CONFIG_SERIAL_8250_CONSOLE=y
+CONFIG_SERIAL_MTK=y
+
+# An on-screen text console, if it works. CONFIG_VT is *off* in the vendor
+# config and mtkfb's fb_ops may not implement the drawing callbacks fbcon
+# needs, so treat "fbcon works" as an experiment with a good outcome, not a
+# plan: the serial console is the reliable one.
+CONFIG_VT=y
+CONFIG_VT_CONSOLE=y
+CONFIG_FRAMEBUFFER_CONSOLE=y
+CONFIG_FRAMEBUFFER_CONSOLE_DETECT_PRIMARY=y
+CONFIG_FONTS=y
+CONFIG_FONT_8x16=y
+
+# Extra filesystems for debugging from a USB stick (OTG host).
+CONFIG_USB_STORAGE=y
+CONFIG_VFAT_FS=y

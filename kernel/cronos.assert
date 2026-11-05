@@ -1,0 +1,32 @@
+# Assertions checked after `make olddefconfig`, for both prod and dev builds.
+#
+# Why this file exists: `olddefconfig` is allowed to silently flip a symbol off
+# when a dependency is missing (or when another symbol selects it away). A
+# kernel without CONFIG_DEVTMPFS_MOUNT still builds — it just fails at boot with
+# "no /dev". That failure mode costs an hour of guessing; this file costs 11
+# lines and turns it into a build error.
+
+# initramfs must decompress, or boot is a black panel with no output
+CONFIG_BLK_DEV_INITRD=y
+CONFIG_RD_GZIP=y
+
+# the slot image format
+CONFIG_SQUASHFS=y
+CONFIG_SQUASHFS_XZ=y
+
+# loop devices for mounting root.squashfs
+CONFIG_BLK_DEV_LOOP=y
+
+# /dev without udev
+CONFIG_DEVTMPFS=y
+CONFIG_DEVTMPFS_MOUNT=y
+
+# the persistent partitions
+CONFIG_EXT4_FS=y
+
+# /var /run /tmp
+CONFIG_TMPFS=y
+
+# must NOT be enabled in a shipping kernel
+-CONFIG_DEBUG_INFO
+-CONFIG_IKCONFIG_PROC

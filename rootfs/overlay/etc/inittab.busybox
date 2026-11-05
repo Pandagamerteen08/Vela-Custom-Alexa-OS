@@ -1,0 +1,13 @@
+# /etc/inittab — Variant B: no OpenRC at all (fallback if the RAM gate is missed).
+#
+# OpenRC costs ~2 MB RSS during boot and ~200 KB resident afterwards, plus
+# ~400 KB of scripts. That is not where the real savings are, but if idle RAM
+# lands at 105 MiB against a 100 MiB gate, this is the cheapest 2 MB to remove.
+# Applied by `mkrootfs.sh --variant inittab`.
+
+::sysinit:/etc/init.d/cronos-boot
+::respawn:/usr/sbin/cronosd
+ttyMT0::respawn:/sbin/getty -L ttyMT0 921600 vt100
+::askfirst:-/bin/sh
+::ctrlaltdel:/sbin/reboot
+::shutdown:/bin/umount -a -r
