@@ -1,0 +1,20 @@
+#!/bin/sh
+# vela-run — the respawn target in /etc/inittab.
+#
+# Why this exists instead of `::respawn:/usr/sbin/velad`: until the daemon is
+# built, inittab respawning a missing binary gives you a fork/exec failure loop
+# with nothing on the panel and nothing on the console — indistinguishable from a
+# broken kernel, which is the worst possible failure to debug on this board.
+#
+# When velad is installed this is a one-line exec and costs nothing. When it is
+# not, you get a serial console instead of a silent loop.
+
+if [ -x /usr/sbin/velad ]; then
+    exec /usr/sbin/velad "$@"
+fi
+
+printf '\n' > /dev/console
+printf 'vela-run: /usr/sbin/velad is not installed.\n' > /dev/console
+printf 'vela-run: this rootfs predates the daemon (P4). Dropping to a console.\n' > /dev/console
+printf 'vela-run: try: slotctl get | dmesg | tail | /etc/init.d/vela-net start\n\n' > /dev/console
+exec /bin/sh -i </dev/console >/dev/console 2>&1

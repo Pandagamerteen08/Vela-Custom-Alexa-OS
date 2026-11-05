@@ -42,6 +42,18 @@ on-disk `manifest.json` and `slot.ptr` formats, and each such bump says so.
 
 ### Fixed
 
+- `kernel/build.sh --check` fetched the 2 GB kernel tree before deciding it was
+  only checking: in CI that turned a sanity gate into a clone that blew the job.
+- The initramfs busybox stage in the `Dockerfile` installed into an empty root
+  with no keyring, so `apk` refused the packages as untrusted. `--initdb
+  --keys-dir /etc/apk/keys` fixes it.
+- Both inittabs respawned `/usr/sbin/velad` directly. Until the daemon exists
+  that is a fork/exec loop with nothing on the panel and nothing on the console,
+  which reads exactly like a broken kernel. `::respawn:/sbin/vela-run` execs
+  `velad` when present and drops to a console shell when it is not.
+- `tests/test_tools.py` skipped the whole cpio suite on hosts that cannot create
+  symlinks (Windows without the privilege) instead of failing as if the encoder
+  were wrong.
 - `tests/mkrootfs.sh` asserted that the test tree's own `inittab` survived,
   which is wrong: the overlay is authoritative and overwrites it. The check now
   asserts the OpenRC-free variant really has no OpenRC and does start `velad`.

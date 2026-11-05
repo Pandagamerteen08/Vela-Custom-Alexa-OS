@@ -19,7 +19,8 @@
 FROM alpine:3.20 AS busybox-aarch64
 # --root/--arch installs packages without running their triggers, which is what
 # we want: busybox-static has none, and there is no aarch64 kernel here.
-RUN apk add --no-cache --root /bb --arch aarch64 \
+RUN apk add --no-cache --root /bb --initdb --arch aarch64 \
+        --keys-dir /etc/apk/keys \
         --repository https://dl-cdn.alpinelinux.org/alpine/v3.20/main \
         busybox-static \
  && /bb/bin/busybox | head -1

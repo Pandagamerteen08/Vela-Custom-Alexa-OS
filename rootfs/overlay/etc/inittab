@@ -15,7 +15,9 @@
 
 # The daemon owns the panel, touch, audio, wake word, network client and OTA.
 # It must be PID-owned here so a crash is reaped and reported, not ignored.
-::respawn:/usr/sbin/velad
+# /sbin/vela-run execs velad, or gives you a console shell when velad is not
+# installed yet - respawning a missing binary is an invisible boot loop.
+::respawn:/sbin/vela-run
 
 # Serial console, if one is wired. `askfirst` means it does not steal the tty.
 ttyMT0::respawn:/sbin/getty -L ttyMT0 921600 vt100

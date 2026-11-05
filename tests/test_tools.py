@@ -15,7 +15,32 @@ import kconfig  # noqa: E402
 import mkcpio  # noqa: E402
 
 
+def _links_available():
+    """Can this host create symlinks and hardlinks at all?"""
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            target = os.path.join(tmp, "t")
+            with open(target, "w") as f:
+                f.write("x")
+            os.symlink("t", os.path.join(tmp, "s"))
+            os.link(target, os.path.join(tmp, "h"))
+            return True
+        except (OSError, NotImplementedError):
+            return False
+
+
+LINKS_AVAILABLE = _links_available()
+
+
 class Cpio(unittest.TestCase):
+    def setUp(self):
+        if not LINKS_AVAILABLE:
+            self.skipTest(
+                "this host cannot create symlinks/hardlinks (Windows needs "
+                "SeCreateSymbolicLinkPrivilege); mkcpio's link encoding is "
+                "unverifiable here, not broken")
+
     def build_tree(self, tmp):
         os.makedirs(os.path.join(tmp, "bin"))
         os.makedirs(os.path.join(tmp, "sbin"))

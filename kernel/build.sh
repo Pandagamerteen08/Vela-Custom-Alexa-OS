@@ -99,6 +99,12 @@ done
 
 # --- 2. source ------------------------------------------------------------
 if [ ! -d "$KERNEL_SRC/.git" ]; then
+    if [ "$CHECK_ONLY" = "1" ]; then
+        log "check mode: kernel source not fetched yet - nothing to verify"
+        log "  would clone: $REPO ($BRANCH) -> $KERNEL_SRC"
+        log "  run without --check to actually fetch and build it"
+        exit 0
+    fi
     log "cloning $REPO ($BRANCH) into $KERNEL_SRC"
     log "note: this tree is large (~2 GB with history); --depth 1 keeps it usable"
     mkdir -p "$(dirname "$KERNEL_SRC")"
