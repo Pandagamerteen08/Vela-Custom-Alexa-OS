@@ -89,7 +89,7 @@ Step-by-step build: **[docs/BUILD.md](docs/BUILD.md)**. Flashing and recovery:
 | FDT parse/patch round-trip | **passes**, including a real `dtc`-produced blob |
 | cpio determinism, hardlinks, symlinks | **passes**, cross-checked with GNU `cpio` |
 | Kernel config fragments: apply, idempotence, assertions | **passes** |
-| A/B slot state machine: trials, revert, commit, corruption, double failure | **passes**, 36 checks |
+| A/B slot state machine: trials, revert, commit, corruption, double failure | **passes**, 38 checks |
 | Rootfs packer: overlay, boot-path checks, squashfs, 20 MB gate | **passes** (with a prepared tree; `apk` needs QEMU) |
 | Package list contract (every package justified) | **passes**, enforced in CI-able form |
 | initramfs → cpio → gzip → boot.img end to end | **passes**, with a synthetic kernel |
@@ -141,6 +141,10 @@ tools/deploy.sh boot build/boot.img --yes    # writes p9, reboots
 
 Requirements that will bite you first:
 
+- **[docs/host-setup.md](docs/host-setup.md)** — one install block for Zorin OS / Ubuntu /
+  Debian, with the official link for every package and download. `python3 tools/vela.py
+  doctor` prints the one line your machine is missing.
+
 - **GCC ≤ 10** (or AOSP clang 10–12) for Linux 4.9. GCC 12+ produces a wall of
   unrelated errors.
 - a **static aarch64 busybox** for the initramfs. The kernel is 64-bit; the rootfs is
@@ -177,7 +181,8 @@ Release process: **[docs/RELEASE.md](docs/RELEASE.md)**. Wi-Fi pitfalls:
 ## Repository layout
 
 ```
-docs/design.md   the design: architecture, targets, risks, acceptance tests
+docs/design.md              the design: architecture, targets, risks, acceptance tests
+docs/host-setup.md          what to install, with the official link for each package
 docs/BUILD.md               step-by-step build, from host packages to first boot
 docs/install.md             flashing, partition prep, dark-panel triage, rollback
 kernel/                     config fragments (base / trim / dev), assertions, build driver

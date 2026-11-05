@@ -21,11 +21,16 @@ is the part reviewers and CI touch.
 Debian/Ubuntu:
 
 ```sh
-sudo apt install build-essential git python3 bc bison flex libssl-dev \
-     gcc-aarch64-linux-gnu qemu-user-static binfmt-support \
-     squashfs-tools cpio device-tree-compiler android-tools-adb \
-     android-tools-fastboot
+sudo apt install build-essential git python3 bc bison flex libssl-dev libelf-dev \
+     gcc-10-aarch64-linux-gnu qemu-user-static binfmt-support \
+     squashfs-tools cpio device-tree-compiler adb fastboot
+CROSS_COMPILE=aarch64-linux-gnu-10- kernel/build.sh
 ```
+
+Full copy-paste version with a link for every package: `docs/host-setup.md`. The
+short version: these releases no longer ship GCC 10 as the default cross
+compiler, and `gcc-10-aarch64-linux-gnu` (universe) is not optional for a Linux
+4.9 tree.
 
 Fedora: `dnf install make git python3 bc bison flex openssl-devel
 gcc-aarch64-linux-gnu qemu-user-static squashfs-tools cpio dtc
@@ -69,7 +74,7 @@ python3 tools/vela.py doctor
 python3 tools/vela.py test           # python suite + slotctl (needs clang)
 ```
 
-`slotctl` is POSIX C, so it builds and its 36 checks run natively. What does not
+`slotctl` is POSIX C, so it builds and its 38 checks run natively. What does not
 run natively is the kernel and rootfs: they need `chroot`, `binfmt_misc` and a
 Linux cross toolchain. Use the container:
 

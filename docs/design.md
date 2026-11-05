@@ -813,7 +813,7 @@ The buildable half of this document. Host-tested, not device-tested.
 | `tools/fdt.py`, `tools/patch-dtb.py` | parse/edit a DTB; drop `amzn,mic-downmix`; find an appended DTB inside a kernel `Image` | round-trip plus a real `dtc`-produced blob |
 | `tools/mkcpio.py` | deterministic newc cpio (hardlinks preserved) | determinism, hardlink, symlink, mode tests |
 | `tools/kconfig.py` | apply fragments in place, assert the result | idempotence, ordering, string values, failing assertions |
-| `src/slotctl/slotctl.c` | the A/B pointer: 16-byte dual records, CRC32, atomic rename, trial/commit/revert | 36 checks over every transition incl. corruption and double failure |
+| `src/slotctl/slotctl.c` | the A/B pointer: 16-byte dual records, CRC32, atomic rename, trial/commit/revert | 38 checks over every transition incl. corruption and double failure |
 | `initramfs/init` | slot choice, squashfs mount, tmpfs `/var` `/run` `/tmp`, `/data`, `switch_root`, rescue shell | shell syntax only; needs the device |
 | `kernel/*.fragment` | base (safe), trim (opt-in), dev (debug) config deltas + assertions | applied and asserted against a sample config |
 | `tools/mkinitramfs.sh`, `kernel/build.sh` | assemble the initramfs, build the kernel and boot.img | architecture guard and `bash -n`; the kernel build itself is unproven |

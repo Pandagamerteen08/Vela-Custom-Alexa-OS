@@ -25,6 +25,10 @@ on-disk `manifest.json` and `slot.ptr` formats, and each such bump says so.
 - `.github/workflows/release.yml` — pushing a `v*` tag builds the pack and
   attaches it to the GitHub release, using the per-run `GITHUB_TOKEN`.
 - `docs/platforms.md`, `docs/RELEASE.md`, `docs/net.md`.
+- `docs/host-setup.md` — the install block for Zorin OS / Ubuntu / Debian with an
+  official link for every package and download, and `vela.py doctor` now turns
+  the missing tools into one copy-pasteable install command for the package
+  manager it finds (`apt`, `dnf`, `pacman`, `brew`).
 - `.gitattributes` pinning shell scripts to LF: a Windows checkout with CRLF
   line endings produces `bad interpreter: No such file or directory`, which is
   the least useful error message in this project.

@@ -138,6 +138,88 @@ CHECKS = [
 ]
 
 
+# Missing tool -> the package that provides it, per package manager, in this
+# order: apt (Debian/Ubuntu/Zorin), dnf (Fedora), pacman (Arch), brew (macOS).
+# "-" means "no package here", which is a real answer on some hosts (there is
+# no macOS package for aarch64-linux-gnu-gcc, and pretending otherwise wastes
+# an hour of the reader's evening).
+INSTALL = {
+    "python3": ("python3", "python3", "python", "python@3.12"),
+    "git": ("git", "git", "git", "git"),
+    "docker": ("docker.io", "docker-ce", "docker", "docker"),
+    "podman": ("podman", "podman", "podman", "podman"),
+    "make": ("build-essential", "make", "base-devel", "make"),
+    "cc": ("build-essential", "gcc", "base-devel", "make"),
+    "aarch64-linux-gnu-gcc": ("gcc-10-aarch64-linux-gnu",
+                              "gcc-aarch64-linux-gnu",
+                              "aarch64-linux-gnu-gcc", "-"),
+    "mksquashfs": ("squashfs-tools", "squashfs-tools", "squashfs-tools", "squashfs"),
+    "qemu-arm-static": ("qemu-user-static binfmt-support", "qemu-user-static",
+                        "qemu-user-static", "-"),
+    "dtc": ("device-tree-compiler", "dtc", "dtc", "dtc"),
+    "adb": ("adb", "android-tools", "android-tools", "android-platform-tools"),
+    "fastboot": ("fastboot", "android-tools", "android-tools", "android-platform-tools"),
+}
+
+VERBS = {
+    "apt": ("sudo apt install -y ", "sudo apt update"),
+    "dnf": ("sudo dnf install -y ", "sudo dnf check-update || true"),
+    "pacman": ("sudo pacman -S --needed ", "sudo pacman -Sy"),
+    "brew": ("brew install ", "brew update"),
+}
+
+
+def _package_manager():
+    for name, cmd in (("apt", "apt-get"), ("dnf", "dnf"),
+                      ("pacman", "pacman"), ("brew", "brew")):
+        if which(cmd):
+            return name
+    return None
+
+
+def _install_hints(found):
+    """Turn the missing tools into one command that can be pasted.
+
+    'What do I install' should be one line, not a table to interpret. This is
+    the whole reason doctor exists.
+    """
+    if IS_WINDOWS:
+        print("\n  installing on Windows")
+        print("    python + Git for Windows covers every host check; the kernel and")
+        print("    rootfs steps run in the container: python tools\\vela.py docker kernel")
+        print("    Official instructions: docs/host-setup.md")
+        return
+
+    missing = [t for t, hit in found.items() if not hit and t in INSTALL]
+    if not missing:
+        print("\n  every tool this project can use is already installed here.")
+        return
+
+    pm = _package_manager() or "apt"
+    column = {"apt": 0, "dnf": 1, "pacman": 2, "brew": 3}[pm]
+    packages, unavailable = [], []
+    for tool in sorted(missing):
+        names = INSTALL[tool][column]
+        if names == "-":
+            unavailable.append(tool)
+            continue
+        for name in names.split():
+            if name not in packages:
+                packages.append(name)
+
+    print("\n  to install what is missing")
+    if packages:
+        verb = VERBS[pm][0]
+        body = textwrap.fill(" ".join(packages), width=74,
+                             initial_indent=verb, subsequent_indent=" " * len(verb))
+        for line in body.splitlines():
+            print(f"    {line}")
+    for tool in unavailable:
+        print(f"    {tool}: no package for this host - use the container instead")
+    print("    then: python3 tools/vela.py doctor")
+    print("    exact per-host steps and official links: docs/host-setup.md")
+
+
 def cmd_doctor(args):
     print(f"vela doctor")
     print(f"  os        {platform.system()} {platform.release()} ({platform.machine()})")
@@ -188,6 +270,8 @@ def cmd_doctor(args):
     if IS_WINDOWS:
         print("\n  Windows note: use the container. The .sh suites run under Git Bash if")
         print("  you installed it; without one they are reported as skipped, not failed.")
+
+    _install_hints(found)
 
     rc = 0 if found["python3"] else 1
     if not host_tests:

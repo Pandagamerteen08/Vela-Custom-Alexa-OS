@@ -17,18 +17,23 @@ experiment with a known rollback.
 
 ## Step 0 — Host prerequisites
 
-Ubuntu/Debian names; substitute for your distro. On macOS or Windows, steps 0-2
-work natively and the kernel/rootfs steps run in the container from
-`./Dockerfile` — see `docs/platforms.md` for the per-OS commands and the Windows
-line-ending trap. `python tools/vela.py doctor` tells you which of those two
-worlds the machine you are on belongs to.
+**Zorin OS, Ubuntu, Debian, Pop!_OS, Mint: this is one command.**
+[docs/host-setup.md](host-setup.md) has the copy-paste block for that family and
+the official link for every package in it, and `python3 tools/vela.py doctor`
+prints the one install line your machine is missing (it reads your package
+manager instead of assuming apt).
 
 ```sh
-sudo apt install build-essential git python3 bc bison flex libssl-dev \
-     gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
+sudo apt install build-essential git python3 bc bison flex libssl-dev libelf-dev \
+     gcc-10-aarch64-linux-gnu binutils-aarch64-linux-gnu \
      qemu-user-static binfmt-support squashfs-tools cpio \
-     android-tools-adb android-tools-fastboot device-tree-compiler
+     adb fastboot android-sdk-platform-tools-common device-tree-compiler
 ```
+
+On macOS or Windows, steps 0-2 work natively and the kernel/rootfs steps run in
+the container from `./Dockerfile` — see `docs/platforms.md` for the per-OS
+commands and the Windows line-ending trap. `python tools/vela.py doctor` tells
+you which of those two worlds the machine you are on belongs to.
 
 Why each matters:
 
@@ -46,12 +51,18 @@ vendor tree is worse than mainline. Use GCC 6–10, or AOSP clang 10–12.
 `kernel/build.sh` prints a warning for GCC ≥ 12 but does not stop — you will get
 a wall of unrelated compile errors if you ignore it.
 
-If you need older GCC:
+If you need older GCC, Ubuntu 22.04/24.04 (and Zorin 17/18, Pop!_OS, Mint) do
+ship it, in `universe`:
 
 ```sh
-sudo apt install gcc-10-aarch64-linux-gnu
+sudo apt install gcc-10-aarch64-linux-gnu      # 10.5.x
 CROSS_COMPILE=aarch64-linux-gnu-10- kernel/build.sh
 ```
+
+The explicit prefix matters: plain `gcc-aarch64-linux-gnu` on those releases is
+GCC 11 or newer, so `kernel/build.sh` still picks the wrong compiler unless you
+say otherwise. If `apt` cannot find the package, `universe` is off:
+`sudo add-apt-repository universe`.
 
 **Optional but decisive:** a UART adapter on the mainboard pads (`ttyMT0`,
 921600 8N1). Without it, "the panel is black" is the entire diagnostic. With it,
@@ -71,7 +82,7 @@ Expected:
 
 ```
 == python unit tests
-Ran 42 tests ... OK
+Ran 54 tests ... OK
    tools: PASS
 == slotctl state machine
    slotctl: PASS
@@ -199,10 +210,9 @@ Output: `build/root.squashfs` and `build/manifest.json` (sha256, size, build id)
 **Expect a real fight here with one package.** `wpa_supplicant` is pinned to
 `2.9-r6` because 2.10+ advertises RSN replay counters the vendor driver does not
 implement, and every AP then deauths with reason 2 — which looks exactly like a
-wrong passphrase and can waste a day. Alpine 3.20 does not ship 2.9. Your
-options, in order of preference:
+wrong passphrase and can waste a day. Alpine 3.20 does not ship 2.9. Your   options, in order of preference:
 
-1. Build 2.9 from source in the chroot (see `docs/net.md` when it exists).
+1. Build 2.9 from source in the chroot (see `docs/net.md`).
 2. Point `MIRROR`/`ALPINE_BRANCH` at `v3.17` for that one package.
 3. Ship 2.11 and accept that Wi-Fi will deauth; do not do this and then debug
    the passphrase.
