@@ -2,20 +2,20 @@
 #
 # PID 1 is busybox. OpenRC is not the init here, it is a service manager with
 # dependency ordering that busybox init lacks. Two services, and that is the
-# whole process table: init, cronosd, wpa_supplicant.
+# whole process table: init, velad, wpa_supplicant.
 #
-# If /usr/sbin/cronosd is missing (a build before P4), we start a shell on the
+# If /usr/sbin/velad is missing (a build before P4), we start a shell on the
 # console rather than respawning a binary that does not exist — a respawn loop
 # with no console is indistinguishable from a dead device.
 
 ::sysinit:/sbin/openrc sysinit
-::sysinit:/etc/init.d/cronos-boot
+::sysinit:/etc/init.d/vela-boot
 ::wait:/sbin/openrc boot
 ::wait:/sbin/openrc default
 
 # The daemon owns the panel, touch, audio, wake word, network client and OTA.
 # It must be PID-owned here so a crash is reaped and reported, not ignored.
-::respawn:/usr/sbin/cronosd
+::respawn:/usr/sbin/velad
 
 # Serial console, if one is wired. `askfirst` means it does not steal the tty.
 ttyMT0::respawn:/sbin/getty -L ttyMT0 921600 vt100

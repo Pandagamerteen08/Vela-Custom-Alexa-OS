@@ -1,4 +1,4 @@
-# cronos-min base kernel fragment — apply to the LineageOS cronos config.
+# Vela base kernel fragment — apply to the LineageOS cronos config.
 #
 # Everything here is either (a) needed to boot a Linux userland at all or
 # (b) needed by the A/B squashfs slot design. Nothing here is speculative:

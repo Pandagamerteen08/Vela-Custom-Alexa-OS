@@ -1,4 +1,4 @@
-/* slotctl — A/B slot pointer for cronos-min, usable from the initramfs shell.
+/* slotctl — A/B slot pointer for vela, usable from the initramfs shell.
  *
  * Why C and not a shell script: this runs before `switch_root`, decides whether
  * the device boots at all, and has to be correct when the eMMC returned a
@@ -301,7 +301,7 @@ static int cmd_boot(const char *path)
     return 0;
 }
 
-/* Called by cronosd after a healthy uptime. */
+/* Called by velad after a healthy uptime. */
 static int cmd_commit(const char *path)
 {
     struct store s;

@@ -1,5 +1,5 @@
 #!/sbin/openrc-run
-# cronos-net — bring up wlan0 with wpa_supplicant 2.9, no dhcpcd, no D-Bus.
+# vela-net — bring up wlan0 with wpa_supplicant 2.9, no dhcpcd, no D-Bus.
 #
 # The daemon normally spawns and owns the supplicant (so it can drive reconnects
 # from cfg80211 events). This script exists for the case where the daemon is not
@@ -11,7 +11,7 @@
 description="cronos Wi-Fi (wpa_supplicant + udhcpc)"
 
 depend() {
-    need cronos-boot
+    need vela-boot
     provide net
 }
 

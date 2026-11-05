@@ -1,4 +1,4 @@
-# cronos-min TRIM fragment — opt-in, applied only with `build.sh --trim`.
+# Vela TRIM fragment — opt-in, applied only with `build.sh --trim`.
 #
 # These are the removals that make the kernel small. They are NOT in the base
 # fragment because each one can plausibly break a vendor driver that quietly

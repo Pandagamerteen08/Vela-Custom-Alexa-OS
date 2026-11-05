@@ -17,8 +17,8 @@ Fragment syntax (comments start with '# ' followed by space):
     CONFIG_DEBUG_FS=n      # same thing
 
 Usage:
-    ./kconfig.py apply  --config .config --fragment ../kernel/cronos-prod.fragment -o .config.new
-    ./kconfig.py check  --config .config --assert   ../kernel/cronos-prod.assert
+    ./kconfig.py apply  --config .config --fragment ../kernel/cronos.fragment -o .config.new
+    ./kconfig.py check  --config .config --assert   ../kernel/cronos.assert
     ./kconfig.py diff   --config a.config --other b.config
 """
 

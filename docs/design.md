@@ -1,13 +1,13 @@
-# cronos-min
+# Vela
 
 **A minimal, read-only, single-daemon Alpine Linux system for the Amazon Echo Show 5 (2nd gen, 2021) — codename `cronos`, board C76N8S.**
 
-Working name `cronos-min`; rename freely. This document is an engineering plan, not marketing.
+Working name `Vela`; rename freely. This document is an engineering plan, not marketing.
 Every number marked **(est.)** is an estimate with a measurement gate attached. Every number
 marked **(verified)** comes from a real unit, and the source is named.
 
 Primary reference implementation: **TECHO5** (`github.com/HuskerMinion/techo5`, MIT), which
-already runs Alpine on this exact board in daily use. `cronos-min` differs from it in five
+already runs Alpine on this exact board in daily use. `Vela` differs from it in five
 deliberate ways: **squashfs slots instead of ext4 directory slots**, **a C daemon instead of a
 Go daemon**, **mbedTLS instead of OpenSSL**, **no overlayfs/BlueZ/AirPlay by default**, and a
 **kernel config rebuilt for a Linux-only workload instead of an Android one**. Those five
@@ -17,7 +17,7 @@ changes are where the size and RAM wins come from.
 
 ## 0. Executive summary
 
-| | Stock Fire OS 7 | TECHO5 (real, measured) | **cronos-min target** |
+| | Stock Fire OS 7 | TECHO5 (real, measured) | **Vela target** |
 |---|---|---|---|
 | Rootfs on flash | ~2.5 GB (system+vendor+data) | ~130 MB ext4 per slot | **14–20 MB squashfs per slot (est.)** |
 | Kernel image | 7.4 MB gz (Android config) | 7.4 MB gz | **5.5–7.0 MB gz (est.)** |
@@ -48,7 +48,7 @@ wrong costs weeks.
 | "panel variants: ST7701S and others" | cronos is **fixed** to `st7701s_wsvga_dsi_vdo_cronos_st_truly` (from the `lcm=` cmdline). Panel variance is real on *athena* (Show 8 gen 2) and *crown*, not here. | No panel-variant matrix needed. Do not build for hardware that isn't there. |
 | "DACs: RT5616, TAS5805M, MAX98396" | cronos ships **MAX98396** (I²C 2-0x3d) **or** TAS5805M (I²C 2-0x2c). RT5616 is the **1st-gen** Show 5 (`checkers`). Mic path is a **TLV320AIC3101** ADC (I²C 0-0x18), not a DAC. | Two amp variants to handle, one mic codec. This is a small problem, not the large one the brief implies. |
 | "camera: OV02B10 or similar" | Main + sub camera on I²C 0, mechanical lens cover on `gpio-499`. Exact sensor part unverified. | Treat as feature-flagged and off by default. Never on the boot path. |
-| "bootloader unlocked via amonet-cronos" | Correct, but **version matters**: amonet **2.x** turns `boot` into a plain Android boot image (header v0, page 2048). amonet **1.x** uses a 1 KB microloader header at the front of `boot`/`recovery` and reports `product: CHECKERS`. | Require amonet 2.x. A 1.x unit needs the 2.x exploit run first; cronos-min will not boot on 1.x layouts. |
+| "bootloader unlocked via amonet-cronos" | Correct, but **version matters**: amonet **2.x** turns `boot` into a plain Android boot image (header v0, page 2048). amonet **1.x** uses a 1 KB microloader header at the front of `boot`/`recovery` and reports `product: CHECKERS`. | Require amonet 2.x. A 1.x unit needs the 2.x exploit run first; Vela will not boot on 1.x layouts. |
 | "mute button acts as power in some setups" | It emits `KEY_POWER` on `gpio-privacy-button` and toggles a **hardware latch**; the red LED follows the latch. **Software cannot release the latch** — only the button can. | Mute is a UI *state display*, never a software control. Do not build a "mute" button in the UI that pretends to clear it. |
 | "framebuffer/DRM paths" | fbdev works **only because a pure-Linux boot never sends the frame config that frees it** (`CONFIG_FREE_FB_BUFFER=y` frees the 7 MB boot framebuffer the first time an Android-style frame config arrives). The vendor `/dev/mtk_disp_mgr` overlay config **does not latch** from a bare session (verified: `SET_INPUT_BUFFER` + `TRIGGER_SESSION` return success, `OVL0 src_con` stays 0). | **fbdev is the only working display path on 4.9.** Not DRM. Not the vendor display-manager. Design the UI around `/dev/graphics/fb0`. |
 | "OpenRC" | On Alpine, PID 1 is **busybox init** reading `/etc/inittab`; OpenRC is a service manager started *by* it. TECHO5 uses busybox init alone. | Keep OpenRC, but with a **two-service runlevel**, and keep a documented inittab-only fallback (saves ~2 MB). Details in §5. |
@@ -76,8 +76,8 @@ wrong costs weeks.
         └───────────────────────────────────────────────────────────┘
                                      ↓
    PID 1  busybox init ── /etc/inittab
-     ├─ 1  cronosd        (C, static-ish, owns fb + touch + alsa + net + ota)
-     ├─ 2  wpa_supplicant 2.9  (spawned by cronosd, dies with it)
+     ├─ 1  velad        (C, static-ish, owns fb + touch + alsa + net + ota)
+     ├─ 2  wpa_supplicant 2.9  (spawned by velad, dies with it)
      └─    (OpenRC: 2 services, or inittab-only build)
 ```
 
@@ -92,7 +92,7 @@ wrong costs weeks.
 | LibreEcho 6.1 (`aslater3/LibreEcho-Linux-6.1`) | Real and impressive, but targets `radar_puffin`/`biscuit`; cronos is explicitly not supported, and the MT8163 changes are not upstream-ready. A 6.1 port for cronos is a multi-month project with no payoff: it buys no memory. |
 | TWRP's 4.9.77 32-bit kernel | 32-bit kernel = no `CONFIG_COMPAT` needed but **the `recovery` slot is the only place it boots**, and it lacks the vendor Wi-Fi/BT modules. It is the *recovery* kernel, not the product kernel. |
 
-**What we change in the config** (this is where cronos-min beats TECHO5 on flash):
+**What we change in the config** (this is where Vela beats TECHO5 on flash):
 
 *Enable (TECHO5's kernel does not have these — it uses ext4 directory slots because of it):*
 ```
@@ -213,7 +213,7 @@ use it, but ship without it.
 | Component | Uncompressed | Notes |
 |---|---|---|
 | musl + busybox + baselayout | 1.8 MB | |
-| cronosd + LVGL + fonts + assets | 1.2 MB | `-Os`, `-Wl,--gc-sections`, stripped |
+| velad + LVGL + fonts + assets | 1.2 MB | `-Os`, `-Wl,--gc-sections`, stripped |
 | wpa_supplicant 2.9 + libnl | 2.0 MB | version pinnned, see §7.3 |
 | alsa-lib | 0.5 MB | |
 | mbedTLS | 0.6 MB | |
@@ -230,7 +230,7 @@ linking everything approach. **Do not quote it until `du` says so.**
 
 ### 2.4 Storage layout
 
-| Partition | Size | Use in cronos-min |
+| Partition | Size | Use in Vela |
 |---|---|---|
 | p1 kb, p2 dkb, p3 lk, p4 tee1, p6 tee2, p5 logo | 1/1/1/5/5/1 MB | **untouched** — kaeru LK lives in `expdb`; patching `lk` relocks the unit |
 | p7 expdb | 16 MB | **untouched** — holds `cronos-kaeru.bin`, the boot logo slot |
@@ -270,12 +270,12 @@ later as the service manager. Two variants exist in the build system:
 
 **Variant A (ship this): busybox init + OpenRC with a 2-service runlevel**
 ```
-::sysinit:/etc/init.d/cronos-boot          # mounts, module load, mixer init, RTC
-::respawn:/usr/sbin/cronosd                # the daemon, PID ownership by inittab
-::respawn:/etc/init.d/cronos-net watchdog  # or fold into the daemon
+::sysinit:/etc/init.d/vela-boot          # mounts, module load, mixer init, RTC
+::respawn:/usr/sbin/velad                # the daemon, PID ownership by inittab
+::respawn:/etc/init.d/vela-net watchdog  # or fold into the daemon
 ::askfirst:/bin/sh -l                      # serial console only if console= present
 ::ctrlaltdel:/sbin/reboot
-::shutdown:/etc/init.d/cronos-shutdown
+::shutdown:/etc/init.d/vela-shutdown
 ```
 OpenRC's contribution: dependency ordering, `rc-status`, and the two service scripts. Cost:
 ~1.5–2.5 MB RSS (shell + awk during boot, ~200 KB resident afterwards) plus ~400 KB of scripts.
@@ -289,8 +289,8 @@ two can be compared with `ps_mem` on the same unit.
 | PID | Process | RSS (est.) | Why it must exist |
 |---|---|---|---|
 | 1 | `init` (busybox) | 0.6 MB | PID 1, reaps, respawns chronosd |
-| 2 | `cronosd` | 5–8 MB | The system: UI, input, audio, wake word, network client, OTA, slot commit |
-| 3 | `wpa_supplicant` | 3.5–5 MB | The vendor `mt76x8_wlan` is a cfg80211 fullmac; association needs a supplicant. Spawned and reaped by cronosd; **no D-Bus**, `-u -Dnl80211` |
+| 2 | `velad` | 5–8 MB | The system: UI, input, audio, wake word, network client, OTA, slot commit |
+| 3 | `wpa_supplicant` | 3.5–5 MB | The vendor `mt76x8_wlan` is a cfg80211 fullmac; association needs a supplicant. Spawned and reaped by velad; **no D-Bus**, `-u -Dnl80211` |
 | – | *(none)* | | No dhcpcd (busybox `udhcpc`, 200 KB, transient). No syslogd (in-daemon ring buffer + `/data/log`). No cron (daemon timer). No udev (devtmpfs). No D-Bus (compiled out of wpa_supplicant). No avahi (daemon speaks minimal mDNS). No ntpd daemon (`ntpd -q -p …` once at boot). No sshd by default. |
 
 **Why not systemd, runit, s6, or a custom PID 1:** all are ~equal or worse in RSS to busybox
@@ -321,7 +321,7 @@ Consequences that must be designed in, not discovered:
    rectangles.
 3. **No fbcon.** `CONFIG_VT` is off in these kernels, so there is no text console on the panel.
    Boot must show something from the first frame: paint a splash from the initramfs via a
-   ~40-line fb helper, and hand the fb fd to cronosd.
+   ~40-line fb helper, and hand the fb fd to velad.
 4. **Backlight** is `/sys/class/leds/lcd-backlight` (0–255). Dim by ALS lux, not by timer alone.
 5. **Touch**: `goodix-ts` (GT9xx, I²C 2-0x5d) exposes **multitouch protocol B only**
    (`ABS_MT_SLOT`, `TRACKING_ID`, `POSITION_X/Y`, `TOUCH_MAJOR`) and **no single-touch axes**,
@@ -416,11 +416,11 @@ already in the eleven appended DTBs. **Verify by reading them, do not assume.**
 - **BSS selection**: the firmware picks the BSS by SSID on any band and ignores the requested
   BSSID. Never pin `bssid=`, it makes joins fail.
 - **IP**: busybox `udhcpc` with a 20-line script that writes `/etc/resolv.conf` into tmpfs and
-  signals cronosd. No dhcpcd, no NetworkManager, no `netifrc`.
-- **Reconnect**: in cronosd, an exponential-backoff state machine driven by `cfg80211` events
+  signals velad. No dhcpcd, no NetworkManager, no `netifrc`.
+- **Reconnect**: in velad, an exponential-backoff state machine driven by `cfg80211` events
   from the wpa_supplicant control socket (`/run/wpa_supplicant/wlan0`), not a polling loop.
   Re-scan only after 3 failed attempts; log a single line, not one per attempt.
-- **mDNS**: ~200 lines in cronosd to answer one `_esphomelib._tcp` PTR/SRV/TXT query. No Avahi.
+- **mDNS**: ~200 lines in velad to answer one `_esphomelib._tcp` PTR/SRV/TXT query. No Avahi.
 - **DNS/TLS**: mbedTLS client with a pinned root. HTTP only on the LAN if you accept it.
 
 ### 2.10 Updates, A/B, and rollback
@@ -436,7 +436,7 @@ slot.ptr (in /store, 4 KB, two copies + CRC):
    struct { u32 magic; u32 active; u32 trials_left; u32 crc32; }  ×2
 ```
 
-Update procedure (all inside cronosd, no updater daemon):
+Update procedure (all inside velad, no updater daemon):
 
 1. Fetch a manifest; verify **Ed25519** signature against the compiled-in public key. Reject
    anything unsigned. No JSON parsers: a strict 400-line tokenizer, ~8 KB of code.
@@ -454,7 +454,7 @@ Boot logic in the initramfs:
 read slot.ptr → if trials_left == 0 → mark this slot bad, switch to the other, reboot once
 else trials_left-- ; write back ; mount and continue
 ```
-Commit (from cronosd, 5 minutes after a successful boot with no restart):
+Commit (from velad, 5 minutes after a successful boot with no restart):
 ```
 trials_left = 0 is wrong; write trials_left = 0xFF (committed) for the active slot
 ```
@@ -463,7 +463,7 @@ initramfs as the rescue environment** — serial console on `ttyMT0` at 921600, 
 `telnetd` on 10.0.0.2, `fastboot` reachable by button combo. The unit is always reachable.
 
 **Kernel updates are not slots.** A new `boot.img` is written to `/store/boot/<ver>.img`,
-the current one copied to `/store/boot/good.img`, and applied either by cronosd (`dd` to
+the current one copied to `/store/boot/good.img`, and applied either by velad (`dd` to
 `/dev/block/mmcblk0p9` from within the *running* old kernel — the risk is a power cut mid-write,
 so only do it with battery-charged mains and a verified write) or from TWRP. Keeping
 `good.img` on `/store` means TWRP can always restore without a PC. **Never flash our kernel to
@@ -477,7 +477,7 @@ so only do it with battery-charged mains and a verified write) or from TWRP. Kee
 | Remote shell | `sshd`/`dropbear` **absent from the prod rootfs**. Console is USB serial (`ttyMT0`, pad TP55) or USB RNDIS. An opt-in bundle adds dropbear with key-only auth |
 | Malicious update | Ed25519-signed manifest, compiled-in pubkey, no key on disk, no rollback to a downgrade without an explicit `--allow-downgrade` |
 | Persistence of compromise | Rootfs is **read-only squashfs**; a reboot is a factory reset of everything except `/data` |
-| Credential leak | Wi-Fi PSK stored as a 32-byte hex in `/data/wifi.conf`, mode 0600, never in a config file the supplicant reads directly (cronosd hands it over the control socket with `-W`) |
+| Credential leak | Wi-Fi PSK stored as a 32-byte hex in `/data/wifi.conf`, mode 0600, never in a config file the supplicant reads directly (velad hands it over the control socket with `-W`) |
 | Network attack surface | No listening TCP ports in the default image. The HA connection is **outbound** |
 | Kernel CVE exposure | 4.9 is EOL and unpatchable at scale — mitigated by *not running services*: no shell, no parser reachable from the network except the OTA manifest decoder and the voice stream |
 | Physical | The mic latch is hardware and cannot be defeated by software; the camera has a mechanical cover reported on `gpio-499` — reflect its state in the UI honestly |
@@ -512,7 +512,7 @@ existing rollback. Worth it; not free.
 | Kernel: text+rodata+data | 8–12 | arm64 4.9 trimmed; 22 MB uncompressed image is normal |
 | Kernel: slab + page tables + DMA pools | 10–16 | vendor drivers dominate; measure with `slabtop -s c` |
 | `init` + inittab parents | 0.6 | |
-| `cronosd` incl. framebuffer (3.7 MB), LVGL (0.13 MB), audio rings (32 KB), TLS | 5–8 | |
+| `velad` incl. framebuffer (3.7 MB), LVGL (0.13 MB), audio rings (32 KB), TLS | 5–8 | |
 | `wpa_supplicant` | 3.5–5 | |
 | tmpfs `/var` + `/run` + `/tmp` | 2–5 | capped with `size=` mount options |
 | page cache (squashfs, modules, firmware) | 4–8 | reclaimable; does not count against the gate |
@@ -554,7 +554,7 @@ trace are guesses.
 
 ## 4. Critical components, ranked by work required
 
-| # | Component | State today | Work for cronos-min | Risk |
+| # | Component | State today | Work for Vela | Risk |
 |---|---|---|---|---|
 | 1 | **Kernel config surgery + boot.img packaging** | TECHO5 has a working recipe | Rebuild with squashfs/loop/devtmpfs/BT; produce dev+prod configs; script the boot image. **1–2 weeks** | Medium. Every removed driver must be boot-tested; a silently missing `ION`/`M4U` kills display or camera |
 | 2 | **Audio init across amp variants** | Fully characterised by TECHO5 (incl. two panics and a 30 dB trap) | Port the sequence to C; two mixer tables; safe-mode clear; DL1 hold; ADC routing. **1–2 weeks** | **High.** Wrong variant = silent unit. Must be detected, not assumed |
@@ -608,7 +608,7 @@ initramfs files to release its ~4 MB of ramfs pages** before switching.
 Build as in §2.3. Then the size audit: `du -a build/root | sort -n | tail -40`, `squashfs` it,
 and record the number. **Gate: `root.squashfs` < 20 MB, < 10 MB target.**
 
-### P4 — cronosd bringup, in this order (each step is a demoable milestone) (~4–6 weeks)
+### P4 — velad bringup, in this order (each step is a demoable milestone) (~4–6 weeks)
 1. fbdev + rotate + splash + backlight → clock on screen.
 2. touch (evdev, protocol B, quarter turn) → tappable regions.
 3. ALSA init (amp detect, safe-mode clear, ADC routing, DL1 hold) → beep in / beep out.
@@ -628,11 +628,11 @@ rollback to the good slot, unattended.
 ### P6 — Install on hardware (~half a day per unit)
 Requires **amonet 2.x already applied** (fastboot reports `product: CRONOS`, `kaeru-version:
 2.0.0`, `unlock_status: true`). If it says `product: CHECKERS`, stop: the unit is on the 1.x
-layout and cronos-min will not boot.
+layout and Vela will not boot.
 ```sh
 adb reboot bootloader                     # or: vol-down while plugging in
 fastboot devices                          # expect CRONOS
-fastboot flash boot   boot-cronos-min.img
+fastboot flash boot   boot-Vela.img
 fastboot flash recovery recovery-twrp-cronos.img   # keep TWRP; 32-bit kernel only
 fastboot continue
 # then, from TWRP: format p12 as ext4 (label cronos-store), p16 as ext4,
@@ -706,7 +706,7 @@ saving, each independently shippable.
 - **UPX** on the daemon: halves flash, costs a full decompression into RAM at exec and breaks
   page sharing. Never.
 - **Static linking everything**: bigger total flash, and worse — no page sharing between
-  processes, so RSS goes *up*. Link statically only busybox (initramfs) and, arguably, cronosd.
+  processes, so RSS goes *up*. Link statically only busybox (initramfs) and, arguably, velad.
 - **zram on a 5 % working set**: costs CPU and latency to compress nothing.
 - **A 32-bit kernel**: you would gain ~10 % kernel text but lose the vendor modules and the
   boot chain. Not worth it.
@@ -747,7 +747,7 @@ device than the stock one: faster, private, offline-capable, and using **~6–8 
 ## 9. Repository layout
 
 ```
-cronos-min/
+Vela/
   kernel/
     cronos-dev.config            # fbcon, debugfs, kallsyms, serial console
     cronos-prod.config           # everything debuggy off
@@ -760,12 +760,12 @@ cronos-min/
     packages.txt                 # THE authoritative list; every add needs a RAM/flash note
     overlay/
       etc/inittab
-      etc/init.d/cronos-boot     # modules, mixer, RTC, hostname
-      etc/init.d/cronos-net
+      etc/init.d/vela-boot     # modules, mixer, RTC, hostname
+      etc/init.d/vela-net
       etc/wpa_supplicant.conf    # template only; no PSK on disk
       etc/asound.conf            # nothing but `defaults.pcm.rate_converter`
       usr/lib/firmware/...       # MT7668 wifi/BT blobs
-  src/cronosd/
+  src/velad/
     main.c  ui/  input/  audio/  vw/  net/  ota/  slot/  hw/
     ui/assets/                   # bitmap fonts, icons (≤40 KB total)
     models/                      # INT8 wake-word tflite, ≤1 MB

@@ -1,8 +1,8 @@
-# cronos-min
+# Vela
 
 **A ~100 MiB Alpine Linux for the Amazon Echo Show 5 (2nd gen, 2021, `cronos`, MediaTek MT8163).**
 
-Fire OS 7 on this device idles at roughly 700 MB of the 996 MB available. cronos-min
+Fire OS 7 on this device idles at roughly 700 MB of the 996 MB available. Vela
 targets **under 100 MiB idle**, a **7–10 MiB** read-only squashfs root, and **three
 resident processes**. Not a demo: a kernel, a userspace, an init, a service model,
 A/B updates with rollback, and a build system that fails when any of those numbers
@@ -11,6 +11,11 @@ drift.
 > **Status: pre-hardware.** Every host-side check passes. Nothing here has booted on
 > a real unit yet. The kernel build script is reviewed but unproven. Read
 > [Verified vs. assumed](#verified-vs-assumed) before you flash anything.
+
+> **Naming:** *Vela* is the project. `cronos` is Amazon's codename for this board, so
+> identifiers that describe the **hardware** keep it: `cronos.fragment`,
+> `cronos_defconfig`, `mt8163-cronos.dtb`, the `cronos/lineage-18.1` kernel branch,
+> the `cronos-store` filesystem label. Everything this project wrote is `vela`/`velad`.
 
 ---
 
@@ -25,12 +30,12 @@ cannot even start the secondary cores on an unlocked unit. There is no MT7668 Wi
 So the kernel is **Amazon's downstream 4.9.337** (`cronos/lineage-18.1`), and the
 optimisation happens in userspace: where the 10× actually is.
 
-| | Stock Fire OS 7 | cronos-min |
+| | Stock Fire OS 7 | Vela |
 |---|---|---|
 | Idle RAM | ~700 MB | **55–85 MiB** (gate: 100 MiB) |
 | Root filesystem | ~1.2 GB | **7–10 MiB** squashfs (gate: 20 MiB) |
 | `boot.img` | ~10 MB | **9.5–13 MiB** (gate: 15.5 MiB; partition is 16 MB) |
-| Resident processes | hundreds | **3** (init, `cronosd`, `wpa_supplicant`) |
+| Resident processes | hundreds | **3** (init, `velad`, `wpa_supplicant`) |
 | Update model | Amazon OTA | signed A/B slots, 3 trial boots, automatic rollback |
 
 ---
@@ -46,7 +51,7 @@ p9 boot (16 MB)
   loop-mount /store/slots/<x>/root.squashfs   (read-only, xz)
   tmpfs on /var /run /tmp   ·   mount p16 ext4 (/data)
         ↓ switch_root
-  PID 1 busybox init → OpenRC (2 services) → cronosd, wpa_supplicant
+  PID 1 busybox init → OpenRC (2 services) → velad, wpa_supplicant
         ↓
   /dev/graphics/fb0 (fbdev, no DRM, no compositor) + LVGL 9, software 90° rotation
 ```
@@ -69,7 +74,7 @@ being designed around:
 - **The `recovery` partition boots 32-bit kernels only.** Our kernel is arm64, so it
   goes in `boot`, and TWRP stays in `recovery` as the only local undo.
 
-Full reasoning, tables and sources: **[docs/cronos-min-design.md](docs/cronos-min-design.md)**.
+Full reasoning, tables and sources: **[docs/design.md](docs/design.md)**.
 Step-by-step build: **[docs/BUILD.md](docs/BUILD.md)**. Flashing and recovery:
 **[docs/install.md](docs/install.md)**.
 
@@ -89,8 +94,8 @@ Step-by-step build: **[docs/BUILD.md](docs/BUILD.md)**. Flashing and recovery:
 | Package list contract (every package justified) | **passes**, enforced in CI-able form |
 | initramfs → cpio → gzip → boot.img end to end | **passes**, with a synthetic kernel |
 | Arch guard rejects an x86 busybox in the initramfs | **passes** (by design) |
-| Host tooling on Linux, macOS and Windows | **runs** — `python tools/cronos.py test`, CI matrix in `.github/workflows/ci.yml` |
-| Release packaging and checksums | **passes** — `tools/cronos.py release`, verified in CI |
+| Host tooling on Linux, macOS and Windows | **runs** — `python tools/vela.py test`, CI matrix in `.github/workflows/ci.yml` |
+| Release packaging and checksums | **passes** — `tools/vela.py release`, verified in CI |
 | **Kernel compile** | **not run** — needs an aarch64 toolchain and a 2 GB tree |
 | **Anything on hardware** | **not done** |
 
@@ -102,11 +107,11 @@ All `(est.)` size figures in the design document stay estimates until
 ## Install a release
 
 Every tagged build gets a pack on the [Releases](../../releases) page:
-`cronos-min-<version>.tar.gz`, the same tree as `.zip`, `SHA256SUMS.txt`, and a
+`vela-<version>.tar.gz`, the same tree as `.zip`, `SHA256SUMS.txt`, and a
 generated `RELEASE.md` describing exactly which artifacts that build contains.
 
 ```sh
-tar xzf cronos-min-0.1.0.tar.gz && cd cronos-min-0.1.0
+tar xzf vela-0.1.0.tar.gz && cd vela-0.1.0
 sha256sum -c SHA256SUMS.txt        # Linux
 shasum -a 256 -c SHA256SUMS.txt    # macOS
 less RELEASE.md                    # images present, install steps, known limits
@@ -118,9 +123,9 @@ yet, and the pack says so rather than implying otherwise.
 ## Quickstart
 
 ```sh
-python tools/cronos.py doctor    # what this machine can build (any OS)
-python tools/cronos.py test      # every host check this host can run (any OS)
-python tools/cronos.py release    # package dist/ for a release (any OS)
+python tools/vela.py doctor    # what this machine can build (any OS)
+python tools/vela.py test      # every host check this host can run (any OS)
+python tools/vela.py release    # package dist/ for a release (any OS)
 
 make test        # host checks: no device, no root, no toolchain
 make check       # toolchain + source sanity
@@ -151,14 +156,14 @@ Requirements that will bite you first:
 | flash over USB | yes | yes | yes | yes |
 | kernel + rootfs build | yes | container | container | yes |
 
-The top two rows need no root, no Docker and no device: `python tools/cronos.py
+The top two rows need no root, no Docker and no device: `python tools/vela.py
 test`. The Linux-only steps are the ones that genuinely need Linux (`chroot`,
 `binfmt_misc`, a cross toolchain), and `./Dockerfile` is the supported way to run
 them from macOS or Windows:
 
 ```sh
-python tools/cronos.py docker rootfs         # or: kernel, kernel-check, test, shell
-docker run --rm --privileged -v "$PWD:/work" -w /work cronos-min-build \
+python tools/vela.py docker rootfs         # or: kernel, kernel-check, test, shell
+docker run --rm --privileged -v "$PWD:/work" -w /work vela-build \
     bash -lc 'tools/mkrootfs.sh && kernel/build.sh'
 ```
 
@@ -172,7 +177,7 @@ Release process: **[docs/RELEASE.md](docs/RELEASE.md)**. Wi-Fi pitfalls:
 ## Repository layout
 
 ```
-docs/cronos-min-design.md   the design: architecture, targets, risks, acceptance tests
+docs/design.md   the design: architecture, targets, risks, acceptance tests
 docs/BUILD.md               step-by-step build, from host packages to first boot
 docs/install.md             flashing, partition prep, dark-panel triage, rollback
 kernel/                     config fragments (base / trim / dev), assertions, build driver
@@ -182,7 +187,7 @@ rootfs/overlay/             inittab (2 variants), init.d, wpa_supplicant templat
 src/slotctl/                A/B slot pointer: 16-byte dual records, CRC32, atomic rename
 tools/                      mkbootimg, patch-dtb, fdt, mkcpio, kconfig, packages,
                             mkinitramfs, mkrootfs, deploy, measure, report-sizes,
-                            cronos.py (cross-platform entry point)
+                            vela.py (cross-platform entry point)
 Dockerfile                  pinned Linux build env (GCC 10, QEMU, mksquashfs)
 .github/workflows/           ci.yml (Linux/macOS/Windows + container), release.yml
 tests/                      host tests for every tool, the state machine and the packer
@@ -243,4 +248,4 @@ redistributed here in any form.
 Hardware ground truth leans heavily on the [TECHO5](https://github.com/HuskerMinion/techo5)
 project (same SoC family, different board) and the amonet reverse-engineering work that
 makes unlocking `cronos` possible at all. Sources are listed in
-[docs/cronos-min-design.md](docs/cronos-min-design.md) §12.
+[docs/design.md](docs/design.md) §12.

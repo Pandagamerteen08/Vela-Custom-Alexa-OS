@@ -29,19 +29,19 @@ jobs:
           python-version: "3.12"
 
       - name: doctor
-        run: python tools/cronos.py doctor
+        run: python tools/vela.py doctor
 
       - name: host checks
-        run: python tools/cronos.py test
+        run: python tools/vela.py test
 
       - name: release packaging works from a bare tree
-        run: python tools/cronos.py release --version 0.0.0-ci
+        run: python tools/vela.py release --version 0.0.0-ci
 
       - name: pack contains the docs and the checksums verify
         shell: bash
         run: |
           ls -l dist
-          cd dist && cd "cronos-min-0.0.0-ci" && \
+          cd dist && cd "vela-0.0.0-ci" && \
             if command -v sha256sum >/dev/null; then sha256sum -c SHA256SUMS.txt; \
             else shasum -a 256 -c SHA256SUMS.txt; fi
 
@@ -51,8 +51,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: build image
-        run: docker build -t cronos-min-build .
+        run: docker build -t vela-build .
       - name: rootfs + kernel sanity inside the container
         run: |
-          docker run --rm --privileged -v "$PWD:/work" -w /work cronos-min-build \
+          docker run --rm --privileged -v "$PWD:/work" -w /work vela-build \
             bash -lc 'kernel/build.sh --check && tools/mkrootfs.sh --dry-run'

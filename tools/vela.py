@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""cronos.py - one cross-platform entry point for everything that is not flashing.
+"""vela.py - one cross-platform entry point for everything that is not flashing.
 
 The shell scripts in this repository assume a POSIX host, which is correct for
 the kernel and rootfs builds (they need chroot, QEMU user emulation and a
 cross toolchain) but wrong as the *only* way in. This wrapper is pure standard
 library Python 3.8+, so it runs the same way on Linux, macOS and Windows:
 
-    python tools/cronos.py doctor                  what this machine can do
-    python tools/cronos.py test                    every host check
-    python tools/cronos.py release                 package dist/ for a GitHub release
-    python tools/cronos.py docker <target>         run a Linux-only step in Docker
+    python tools/vela.py doctor                  what this machine can do
+    python tools/vela.py test                    every host check
+    python tools/vela.py release                 package dist/ for a GitHub release
+    python tools/vela.py docker <target>         run a Linux-only step in Docker
 
 The split it enforces is deliberate:
 
@@ -139,7 +139,7 @@ CHECKS = [
 
 
 def cmd_doctor(args):
-    print(f"cronos-min doctor")
+    print(f"vela doctor")
     print(f"  os        {platform.system()} {platform.release()} ({platform.machine()})")
     print(f"  python    {platform.python_version()} at {PY}")
     print(f"  root      {ROOT}")
@@ -168,7 +168,7 @@ def cmd_doctor(args):
 
     print("  what you can do here")
     print(f"    host checks            {'yes' if host_tests else 'no'} "
-          f"(python tools/cronos.py test)")
+          f"(python tools/vela.py test)")
     if platform.system() == "Linux":
         print(f"    kernel build           {'yes' if native_kernel else 'no'}"
               f"{'' if native_kernel else '  -> install gcc-aarch64-linux-gnu (GCC <= 10)'}")
@@ -178,7 +178,7 @@ def cmd_doctor(args):
         print("    kernel build           no (Linux only)")
         print("    rootfs build           no (Linux only)")
         print(f"    via container          {'yes' if want_docker else 'no'}"
-              f"{'' if want_docker else '  -> install Docker Desktop, then: cronos.py docker test'}")
+              f"{'' if want_docker else '  -> install Docker Desktop, then: vela.py docker test'}")
     print(f"    flashing               "
           f"{'yes' if (found['adb'] and found['fastboot']) else 'no (adb + fastboot)'}")
 
@@ -267,12 +267,12 @@ SOURCE_GLOBS = [
     "docs", "kernel", "initramfs", "rootfs", "src", "tests", "tools",
 ]
 
-RELEASE_TEMPLATE = """# cronos-min {version}
+RELEASE_TEMPLATE = """# vela {version}
 
 A minimal Alpine Linux for the Amazon Echo Show 5 (2nd gen, 2021, `cronos`,
 MediaTek MT8163).
 
-This Release is produced by `python tools/cronos.py release` from commit
+This Release is produced by `python tools/vela.py release` from commit
 `{rev}` at {stamp}. Read `docs/install.md` before flashing anything: the boot
 image path is reversible, the preloader path is not.
 
@@ -311,7 +311,7 @@ shasum -a 256 -c SHA256SUMS.txt    # macOS
   are not, and the initramfs will refuse to install a signed-only manifest.
 - **Unverified on hardware** unless the notes below say otherwise. Every number
   in `docs/` is an estimate until `tools/measure.sh` prints it on a unit.
-- **No `cronosd` yet**: no UI, audio, touch or network client. The first boot
+- **No `velad` yet**: no UI, audio, touch or network client. The first boot
   ends at a serial console by design.
 
 ## Known numbers
@@ -393,7 +393,7 @@ def cmd_release(args):
     release_md = RELEASE_TEMPLATE.format(version=version, rev=rev, stamp=stamp,
                                          contents=contents)
 
-    stage = out / f"cronos-min-{version}"
+    stage = out / f"vela-{version}"
     if stage.exists():
         shutil.rmtree(stage)
     stage.mkdir(parents=True)
@@ -406,19 +406,19 @@ def cmd_release(args):
     (stage / "RELEASE.md").write_text(release_md, encoding="utf-8")
     (stage / "SHA256SUMS.txt").write_text("\n".join(checks_lines) + "\n", encoding="utf-8")
 
-    tarball = out / f"cronos-min-{version}.tar.gz"
+    tarball = out / f"vela-{version}.tar.gz"
     with tarfile.open(tarball, "w:gz") as tf:
         for p, arc in written:
-            tf.add(p, arcname=f"cronos-min-{version}/{arc}")
+            tf.add(p, arcname=f"vela-{version}/{arc}")
         for name in ("RELEASE.md", "SHA256SUMS.txt"):
-            tf.add(stage / name, arcname=f"cronos-min-{version}/{name}")
+            tf.add(stage / name, arcname=f"vela-{version}/{name}")
 
-    zippath = out / f"cronos-min-{version}.zip"
+    zippath = out / f"vela-{version}.zip"
     with zipfile.ZipFile(zippath, "w", zipfile.ZIP_DEFLATED) as zf:
         for p, arc in written:
-            zf.write(p, arcname=f"cronos-min-{version}/{arc}")
+            zf.write(p, arcname=f"vela-{version}/{arc}")
         for name in ("RELEASE.md", "SHA256SUMS.txt"):
-            zf.write(stage / name, arcname=f"cronos-min-{version}/{name}")
+            zf.write(stage / name, arcname=f"vela-{version}/{name}")
 
     digest_lines = [f"{sha256(tarball)}  {tarball.name}",
                     f"{sha256(zippath)}  {zippath.name}"]
@@ -445,7 +445,7 @@ def cmd_release(args):
     if missing:
         print(f"  not built on this host: {', '.join(Path(m).name for m in missing)}")
         print("  (the pack still installs nothing for those; build first with")
-        print("   `tools/mkrootfs.sh` + `kernel/build.sh` or `cronos.py docker release`)")
+        print("   `tools/mkrootfs.sh` + `kernel/build.sh` or `vela.py docker release`)")
     print(f"\nnext: attach dist/* to a GitHub release, or push a v{version} tag and let")
     print(".github/workflows/release.yml do it.")
     return 0
@@ -465,16 +465,16 @@ def _version_from_git():
 # docker
 # --------------------------------------------------------------------------
 
-IMAGE = "cronos-min-build"
+IMAGE = "vela-build"
 CONTAINER_TARGETS = {
-    "test": ["bash", "-lc", "python3 tools/cronos.py test"],
+    "test": ["bash", "-lc", "python3 tools/vela.py test"],
     "initramfs": ["bash", "-lc", "tools/mkinitramfs.sh"],
     "rootfs": ["bash", "-lc", "tools/mkrootfs.sh"],
     "kernel": ["bash", "-lc", "kernel/build.sh"],
     "kernel-check": ["bash", "-lc", "kernel/build.sh --check"],
     "release": ["bash", "-lc",
                 "tools/mkrootfs.sh && kernel/build.sh --check && "
-                "python3 tools/cronos.py release"],
+                "python3 tools/vela.py release"],
     "shell": ["bash", "-l"],
 }
 
@@ -519,7 +519,7 @@ def cmd_docker(args):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(
-        prog="cronos.py",
+        prog="vela.py",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=__doc__)
     sub = ap.add_subparsers(dest="cmd")

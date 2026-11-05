@@ -12,7 +12,7 @@ like something else entirely.
 | Firmware | `WIFI_RAM_CODE_MT7668.bin`, `WIFI_RAM_CODE2_SDIO_MT7668.bin`, `mt7668_patch_e2_hdr.bin`, `EEPROM_MT7668.bin`, `TxPwrLimit_MT76x8.dat`, `wifi.cfg` | from LineageOS `/vendor/firmware`; must land in `/lib/firmware` |
 | Supplicant | `wpa_supplicant` **2.9** | see below — the version is not a preference |
 | Address | busybox `udhcpc`, transient | no `dhcpcd` daemon |
-| Reconnect | `cronosd`, driven by cfg80211 events | not a polling loop |
+| Reconnect | `velad`, driven by cfg80211 events | not a polling loop |
 
 The boot cmdline that came with Android says `firmware_class.path=/vendor/firmware`.
 On a Linux rootfs that path does not exist, so either symlink
@@ -60,7 +60,7 @@ udhcpc -i wlan0 -b -q -t 5 -T 3
 
 ## Reconnect policy
 
-In `cronosd`, an exponential-backoff state machine fed by cfg80211 events from the
+In `velad`, an exponential-backoff state machine fed by cfg80211 events from the
 control socket at `/run/wpa_supplicant/wlan0`:
 
 - 1 s, 2 s, 4 s, 8 s, 16 s, then cap at 60 s.
@@ -73,7 +73,7 @@ control socket at `/run/wpa_supplicant/wlan0`:
 
 - No `NetworkManager`, no `connman`, no D-Bus. `wpa_supplicant` is built without D-Bus
   support, and the daemon talks to it over the control socket.
-- No `avahi`: `cronosd` answers one `_esphomelib._tcp` PTR/SRV/TXT query in ~200 lines
+- No `avahi`: `velad` answers one `_esphomelib._tcp` PTR/SRV/TXT query in ~200 lines
   of mDNS so a Home Assistant instance can discover the device without configuration.
 - No `hostapd`, no WPS, no WPA3. PSK only, which is what the driver does reliably.
 

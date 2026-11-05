@@ -38,7 +38,7 @@ make_tree() {
     chmod 755 "$dest/bin/busybox"
     ln -s ../bin/busybox "$dest/sbin/init"
     : > "$dest/etc/inittab"
-    printf '#!/sbin/openrc-run\n' > "$dest/etc/init.d/cronos-boot"
+    printf '#!/sbin/openrc-run\n' > "$dest/etc/init.d/vela-boot"
 }
 
 # 1. dry run validates the package contract without touching anything
@@ -87,8 +87,8 @@ if grep -q "openrc" "$TMP/var/etc/inittab"; then
 else
     ok
 fi
-grep -q "cronosd" "$TMP/var/etc/inittab" && ok || fail "inittab does not start cronosd"
-[ -e "$TMP/var/etc/init.d/cronos-boot" ] && fail "inittab variant kept the OpenRC scripts" || ok
+grep -q "velad" "$TMP/var/etc/inittab" && ok || fail "inittab does not start velad"
+[ -e "$TMP/var/etc/init.d/vela-boot" ] && fail "inittab variant kept the OpenRC scripts" || ok
 
 echo
 echo "mkrootfs: $CHECKS checks, $FAILS failure(s)"

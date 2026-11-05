@@ -312,7 +312,7 @@ def main(argv=None):
     pk.add_argument("--cmdline-file")
     pk.add_argument("--extra-cmdline", default="")
     pk.add_argument("--out", required=True)
-    pk.add_argument("--name", default="cronos-min")
+    pk.add_argument("--name", default="vela")
     pk.add_argument("--page-size", type=lambda s: int(s, 0), default=PAGE_SIZE)
     pk.add_argument("--kernel-addr", type=lambda s: int(s, 0), default=KERNEL_ADDR)
     pk.add_argument("--ramdisk-addr", type=lambda s: int(s, 0), default=RAMDISK_ADDR)

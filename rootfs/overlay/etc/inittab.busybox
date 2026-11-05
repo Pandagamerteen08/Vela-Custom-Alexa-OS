@@ -5,8 +5,8 @@
 # lands at 105 MiB against a 100 MiB gate, this is the cheapest 2 MB to remove.
 # Applied by `mkrootfs.sh --variant inittab`.
 
-::sysinit:/etc/init.d/cronos-boot
-::respawn:/usr/sbin/cronosd
+::sysinit:/etc/init.d/vela-boot
+::respawn:/usr/sbin/velad
 ttyMT0::respawn:/sbin/getty -L ttyMT0 921600 vt100
 ::askfirst:-/bin/sh
 ::ctrlaltdel:/sbin/reboot

@@ -1,17 +1,17 @@
-# cronos-min build container.
+# Vela build container.
 #
 # Why this exists: the kernel and rootfs steps need Linux semantics (chroot,
 # QEMU user emulation, a cross toolchain, mksquashfs). Those do not exist on
 # Windows or macOS, and "install WSL" is not a build instruction. This image is
 # the one environment where `make` does the same thing on every host:
 #
-#   docker build -t cronos-min-build .
-#   docker run --rm --privileged -v "$PWD:/work" -w /work cronos-min-build \
+#   docker build -t vela-build .
+#   docker run --rm --privileged -v "$PWD:/work" -w /work vela-build \
 #       bash -lc 'tools/mkrootfs.sh && kernel/build.sh'
 #
 # or, from any OS, with Python as the only requirement:
 #
-#   python tools/cronos.py docker rootfs
+#   python tools/vela.py docker rootfs
 #
 # Two stages because the aarch64 busybox for the initramfs is trivial to obtain
 # with `apk` on Alpine and painful to extract by hand anywhere else.
@@ -58,4 +58,4 @@ ENV CROSS_COMPILE=aarch64-linux-gnu- \
 
 # A default command that proves the image is usable rather than dropping into a
 # root shell that looks identical to a broken one.
-CMD ["bash", "-lc", "python3 tools/cronos.py test"]
+CMD ["bash", "-lc", "python3 tools/vela.py test"]

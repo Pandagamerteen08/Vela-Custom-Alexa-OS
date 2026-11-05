@@ -34,10 +34,10 @@ jobs:
           python-version: "3.12"
 
       - name: host checks must pass before anything is published
-        run: python tools/cronos.py test
+        run: python tools/vela.py test
 
       - name: build image
-        run: docker build -t cronos-min-build .
+        run: docker build -t vela-build .
 
       - name: build rootfs (armv7) inside the container
         # Best effort on a runner: apk needs the aarch64 keyring and a working
@@ -45,12 +45,12 @@ jobs:
         # and RELEASE.md says which artifacts are absent.
         continue-on-error: true
         run: |
-          docker run --rm --privileged -v "$PWD:/work" -w /work cronos-min-build \
+          docker run --rm --privileged -v "$PWD:/work" -w /work vela-build \
             bash -lc 'tools/mkrootfs.sh' || true
 
       - name: kernel config sanity
         run: |
-          docker run --rm --privileged -v "$PWD:/work" -w /work cronos-min-build \
+          docker run --rm --privileged -v "$PWD:/work" -w /work vela-build \
             bash -lc 'kernel/build.sh --check'
 
       - name: package
@@ -62,28 +62,28 @@ jobs:
           fi
           if [ -z "$VERSION" ]; then VERSION="0.0.0-$(git rev-parse --short HEAD)"; fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          python tools/cronos.py release --version "$VERSION"
+          python tools/vela.py release --version "$VERSION"
 
       - name: upload to the release page
         uses: softprops/action-gh-release@v2
         with:
-          name: cronos-min ${{ steps.pack.outputs.version }}
+          name: vela ${{ steps.pack.outputs.version }}
           # Both triggers (tag push and workflow_dispatch) derive the tag from
           # the version, so a manual run never creates a release called 'main'.
           tag_name: v${{ steps.pack.outputs.version }}
           draft: false
           prerelease: true
           generate_release_notes: true
-          body_path: dist/cronos-min-${{ steps.pack.outputs.version }}/RELEASE.md
+          body_path: dist/vela-${{ steps.pack.outputs.version }}/RELEASE.md
           files: |
-            dist/cronos-min-*.tar.gz
-            dist/cronos-min-*.zip
+            dist/vela-*.tar.gz
+            dist/vela-*.zip
             dist/SHA256SUMS.txt
             dist/release.json
 
       - name: keep the packs as workflow artifacts too
         uses: actions/upload-artifact@v4
         with:
-          name: cronos-min-${{ steps.pack.outputs.version }}
-          path: dist/cronos-min-*
+          name: vela-${{ steps.pack.outputs.version }}
+          path: dist/vela-*
           if-no-files-found: error

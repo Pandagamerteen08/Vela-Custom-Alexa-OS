@@ -1,4 +1,4 @@
-# Installing cronos-min
+# Installing Vela
 
 Order matters, and two of these steps are irreversible on most units. Read the
 whole page before running anything.
@@ -6,7 +6,7 @@ whole page before running anything.
 ## 0. What you need
 
 - An Echo Show 5 2nd gen with **amonet v2.x** already applied (kaeru LK in
-  `expdb`, `product: CRONOS`, TWRP in the `recovery` partition). cronos-min
+  `expdb`, `product: CRONOS`, TWRP in the `recovery` partition). Vela
   assumes that is done; it does not unlock anything.
 - `fastboot` and `adb` on the host.
 - A static **aarch64** busybox for the initramfs (see `tools/mkinitramfs.sh`).
@@ -99,10 +99,10 @@ than another guess.
    ramdisk compression against `CONFIG_RD_*`, and remember the header must be
    v0/page 2048 — `tools/mkbootimg.py info` prints what you built.
 4. **Kernel log appears, then nothing:** the DTB or the initramfs is at fault.
-   `cronos-init:` lines mean `/init` ran; their absence means the ramdisk did not
+   `vela-init:` lines mean `/init` ran; their absence means the ramdisk did not
    unpack or `/init` is not executable (check the cpio modes with
    `tools/mkcpio.py list`).
-5. **`cronos-init:` lines then a prompt:** that is the rescue shell working.
+5. **`vela-init:` lines then a prompt:** that is the rescue shell working.
    `slotctl get`, `ls /store/slots/*`, `dmesg | tail`.
 6. **Restore**: `fastboot flash boot <boot-stock.img>`, or in TWRP
    `dd if=/sdcard/cronos/boot-stock.img of=/dev/block/mmcblk0p9`.
@@ -113,7 +113,7 @@ reset. TWRP in `recovery` is your local recovery path — keep it.
 
 ## 6. Verify against the acceptance tests
 
-`docs/cronos-min-design.md` §10 has twelve tests. The ones that need no
+`docs/design.md` §10 has twelve tests. The ones that need no
 instrumentation and should be run on day one:
 
 ```sh

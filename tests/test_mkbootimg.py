@@ -22,7 +22,7 @@ def gz(data):
 
 class HeaderLayout(unittest.TestCase):
     def test_offsets_match_aosp(self):
-        hdr = mkbootimg.build_header(1234, 5678, 0, cmdline="console=ttyMT0", name="cronos-min")
+        hdr = mkbootimg.build_header(1234, 5678, 0, cmdline="console=ttyMT0", name="vela")
         self.assertEqual(len(hdr), 1608)
         self.assertEqual(hdr[:8], b"ANDROID!")
         self.assertEqual(struct.unpack_from("<I", hdr, 0x008)[0], 1234)   # kernel_size
@@ -32,7 +32,7 @@ class HeaderLayout(unittest.TestCase):
         self.assertEqual(struct.unpack_from("<I", hdr, 0x020)[0], 0x48000000)
         self.assertEqual(struct.unpack_from("<I", hdr, 0x024)[0], 2048)
         self.assertEqual(struct.unpack_from("<I", hdr, 0x028)[0], 0)      # header v0
-        self.assertEqual(hdr[0x30:0x30 + 10], b"cronos-min")
+        self.assertEqual(hdr[0x30:0x30 + 16].rstrip(b"\0"), b"vela")
         cmd = hdr[0x40:0x240].split(b"\0")[0]
         self.assertEqual(cmd, b"console=ttyMT0")
 

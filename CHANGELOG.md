@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to cronos-min. Dates are UTC.
+All notable changes to Vela. Dates are UTC.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html), with
@@ -11,14 +11,14 @@ on-disk `manifest.json` and `slot.ptr` formats, and each such bump says so.
 
 ### Added
 
-- `tools/cronos.py` — one cross-platform entry point (`doctor`, `test`,
+- `tools/vela.py` — one cross-platform entry point (`doctor`, `test`,
   `release`, `docker`) so the host tooling runs on Linux, macOS and Windows
   alike, with no bash requirement.
 - `Dockerfile` — a pinned Debian bullseye image whose `gcc-aarch64-linux-gnu` is
   GCC 10, the newest compiler this Linux 4.9 tree builds with. Two stages, so the
   aarch64 initramfs busybox comes from Alpine's `apk` instead of hand-extraction.
-- Release packaging: `python tools/cronos.py release` writes
-  `dist/cronos-min-<version>.tar.gz`, a `.zip`, `SHA256SUMS.txt`, `release.json`
+- Release packaging: `python tools/vela.py release` writes
+  `dist/vela-<version>.tar.gz`, a `.zip`, `SHA256SUMS.txt`, `release.json`
   and a generated `RELEASE.md` — with no third-party Python packages.
 - `.github/workflows/ci.yml` — host checks on Ubuntu, macOS and Windows, plus a
   container job for the Linux-only steps.
@@ -44,7 +44,7 @@ on-disk `manifest.json` and `slot.ptr` formats, and each such bump says so.
 
 - `tests/mkrootfs.sh` asserted that the test tree's own `inittab` survived,
   which is wrong: the overlay is authoritative and overwrites it. The check now
-  asserts the OpenRC-free variant really has no OpenRC and does start `cronosd`.
+  asserts the OpenRC-free variant really has no OpenRC and does start `velad`.
 
 ## [0.1.0] - 2026-11-05
 
@@ -53,7 +53,7 @@ hardware yet**, and the kernel build has never been executed by the author.
 
 ### Added
 
-- `docs/cronos-min-design.md` — architecture, RAM/flash budgets, driver ranking,
+- `docs/design.md` — architecture, RAM/flash budgets, driver ranking,
   risks, acceptance tests, sources.
 - `docs/BUILD.md` — step-by-step build from host packages to first boot.
 - `docs/install.md` — flashing, partition prep, dark-panel triage, rollback.

@@ -1,5 +1,5 @@
 #!/bin/bash
-# deploy.sh — flash a cronos-min artifact, with the safety rails that this
+# deploy.sh — flash a vela artifact, with the safety rails that this
 # device needs. Dry-run is the default: you have to ask twice to write flash.
 #
 # Why the paranoia: most cronos units have no BROM USBDL entry, so a bad write

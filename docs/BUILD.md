@@ -1,11 +1,11 @@
-# Building cronos-min, start to finish
+# Building Vela, start to finish
 
 This is the long version. It assumes you have never built a kernel for this
 device and takes you from a stock host to a unit that boots a clock. Every step
 states what success looks like and what the common failure is, because on this
 board a wrong step usually produces *nothing* rather than an error.
 
-Read `docs/cronos-min-design.md` for the why, and `docs/install.md` for the
+Read `docs/design.md` for the why, and `docs/install.md` for the
 flashing safety rules in isolation. Time estimates assume one person who has
 built a kernel before.
 
@@ -20,7 +20,7 @@ experiment with a known rollback.
 Ubuntu/Debian names; substitute for your distro. On macOS or Windows, steps 0-2
 work natively and the kernel/rootfs steps run in the container from
 `./Dockerfile` — see `docs/platforms.md` for the per-OS commands and the Windows
-line-ending trap. `python tools/cronos.py doctor` tells you which of those two
+line-ending trap. `python tools/vela.py doctor` tells you which of those two
 worlds the machine you are on belongs to.
 
 ```sh
@@ -62,8 +62,8 @@ every failure on this page is a log line.
 ## Step 1 — Get the repository and prove the tooling
 
 ```sh
-git clone <this repo> cronos-min
-cd cronos-min
+git clone <this repo> Vela
+cd Vela
 make test
 ```
 
@@ -269,8 +269,8 @@ tools/deploy.sh boot build/boot.img --yes    # writes p9 and reboots
 There is no rootfs yet, so the initramfs is the destination. Expect, in order:
 
 1. The Amazon logo (p5) or a black panel — the kernel has not painted anything.
-2. `cronos-init: store mounted from /dev/block/mmcblk0p12`.
-3. `cronos-init: no slot record; assuming a fresh install` (or the rescue shell).
+2. `vela-init: store mounted from /dev/block/mmcblk0p12`.
+3. `vela-init: no slot record; assuming a fresh install` (or the rescue shell).
 4. A prompt if a serial console is attached.
 
 If you have serial, the first 200 lines of dmesg are the whole diagnosis. If you
@@ -294,7 +294,7 @@ The write-then-rename matters: a half-written `root.squashfs` in the slot you ar
 booting is a rescue-shell boot, and `rename` is atomic.
 
 Expected on boot: initramfs lines → `rootfs mounted (read-only squashfs)` →
-`switch_root`. Then busybox init starts `cronos-boot`, and — because `cronosd`
+`switch_root`. Then busybox init starts `vela-boot`, and — because `velad`
 does not exist yet — you get a shell on the console instead of a respawn loop.
 That is the correct behaviour for a P3 build and is worth confirming explicitly.
 
@@ -337,7 +337,7 @@ Work down this list; each step produces information rather than another guess.
    `tools/mkbootimg.py info`.
 4. **Serial output stops early** → DTB. Boot the stock DTB once to confirm the
    difference, and check that the DTB you appended is the one you patched.
-5. **`cronos-init:` lines then a prompt** → the initramfs is healthy and the
+5. **`vela-init:` lines then a prompt** → the initramfs is healthy and the
    problem is the slot image: `slotctl get`, `ls -l /store/slots/*/`.
 6. **Everything works but `/data` is missing** → by design the UI still runs;
    check `dmesg | grep mmcblk0p16` and whether `mke2fs` in step 5 succeeded.
@@ -353,7 +353,7 @@ a loop, not an error message.
 ## Step 10 — What is still missing
 
 This repository builds a kernel, an initramfs and a rootfs. It does **not** yet
-contain `cronosd`, so there is no UI, no audio, no touch input and no network
+contain `velad`, so there is no UI, no audio, no touch input and no network
 client. That is the next phase and it is the largest one:
 
 | Milestone | First demoable result |

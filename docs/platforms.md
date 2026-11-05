@@ -5,7 +5,7 @@ Ubuntu once":
 
 | Step | Linux | macOS | Windows | Raspberry Pi |
 |---|---|---|---|---|
-| Host tests (`cronos.py test`) | yes | yes | yes | yes |
+| Host tests (`vela.py test`) | yes | yes | yes | yes |
 | Boot image, DTB, cpio, kconfig tools | yes | yes | yes | yes |
 | Release packaging | yes | yes | yes | yes |
 | `slotctl` A/B tests (needs a C compiler) | yes | yes (Xcode CLT) | no native | yes |
@@ -37,8 +37,8 @@ qemu-user-static squashfs-tools cpio dtc android-tools`.
 Then, on any of them:
 
 ```sh
-python3 tools/cronos.py doctor     # confirms every box above
-python3 tools/cronos.py test
+python3 tools/vela.py doctor     # confirms every box above
+python3 tools/vela.py test
 ```
 
 ## Raspberry Pi
@@ -65,8 +65,8 @@ Two Pi-specific footguns:
 ```sh
 xcode-select --install                 # clang, plus make
 brew install python3 android-platform-tools
-python3 tools/cronos.py doctor
-python3 tools/cronos.py test           # python suite + slotctl (needs clang)
+python3 tools/vela.py doctor
+python3 tools/vela.py test           # python suite + slotctl (needs clang)
 ```
 
 `slotctl` is POSIX C, so it builds and its 36 checks run natively. What does not
@@ -74,8 +74,8 @@ run natively is the kernel and rootfs: they need `chroot`, `binfmt_misc` and a
 Linux cross toolchain. Use the container:
 
 ```sh
-python3 tools/cronos.py docker rootfs
-python3 tools/cronos.py docker kernel-check   # full build: docker kernel
+python3 tools/vela.py docker rootfs
+python3 tools/vela.py docker kernel-check   # full build: docker kernel
 ```
 
 **Case sensitivity.** The Linux kernel source tree assumes a case-sensitive
@@ -84,8 +84,8 @@ error that looks like a broken source tree. If you insist on building natively
 (don't), make a case-sensitive volume:
 
 ```sh
-hdiutil create -type SPARSE -fs 'Case-sensitive APFS' -size 40g ~/cronos.dmg
-hdiutil attach ~/cronos.dmg
+hdiutil create -type SPARSE -fs 'Case-sensitive APFS' -size 40g ~/vela.dmg
+hdiutil attach ~/vela.dmg
 ```
 
 Serial console on macOS works: `screen /dev/tty.usbserial-XXXX 921600`, exit
@@ -104,17 +104,17 @@ easier.
 
 ```powershell
 # in PowerShell, from the repo root
-python tools\cronos.py doctor
-python tools\cronos.py test              # python suite; shell suites skip
-python tools\cronos.py docker rootfs     # Linux-only steps in the container
-python tools\cronos.py docker kernel-check
-python tools\cronos.py release           # produces dist\
+python tools\vela.py doctor
+python tools\vela.py test              # python suite; shell suites skip
+python tools\vela.py docker rootfs     # Linux-only steps in the container
+python tools\vela.py docker kernel-check
+python tools\vela.py release           # produces dist\
 ```
 
 Install Python from python.org (tick "Add python.exe to PATH") and Git for
-Windows (which gives `sh`, so `cronos.py test` also runs the shell suites; the C
+Windows (which gives `sh`, so `vela.py test` also runs the shell suites; the C
 compiler is still missing, so `slotctl` stays skipped unless you use
-`cronos.py docker test`).
+`vela.py docker test`).
 
 For flashing from native Windows: unzip the
 [platform-tools](https://developer.android.com/tools/releases/platform-tools)
@@ -133,8 +133,8 @@ which reads like a missing dependency and is not.
 ## The container
 
 ```sh
-docker build -t cronos-min-build .
-docker run --rm --privileged -v "$PWD:/work" -w /work cronos-min-build \
+docker build -t vela-build .
+docker run --rm --privileged -v "$PWD:/work" -w /work vela-build \
     bash -lc 'tools/mkrootfs.sh'
 ```
 
@@ -154,7 +154,7 @@ A newer base image costs an hour of unrelated compiler errors.
 
 | | Ubuntu x86_64 | M-series Mac, container | Windows, container | Pi 5 (arm64) |
 |---|---|---|---|---|
-| `cronos.py test` | ~2 s | ~3 s | ~3 s | ~4 s |
+| `vela.py test` | ~2 s | ~3 s | ~3 s | ~4 s |
 | container build | 3-5 min | 5-8 min | 5-8 min | 3-5 min |
 | kernel build | 15-30 min | 25-50 min | 25-50 min | 1-3 h |
 | rootfs build | ~1 min | ~2 min | ~2 min | ~1 min |

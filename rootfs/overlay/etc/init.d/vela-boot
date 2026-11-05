@@ -1,16 +1,16 @@
 #!/sbin/openrc-run
-# cronos-boot — everything that must be true before cronosd touches hardware.
+# vela-boot — everything that must be true before velad touches hardware.
 #
 # Deliberately not a pile of services: each `start` here is one line that either
 # works or produces a dmesg line. Anything that can fail without stopping the UI
 # is a warning, not a dependency.
 
-description="cronos-min one-shot boot setup"
+description="vela one-shot boot setup"
 
 depend() {
     need localmount
     after modules
-    before cronosd
+    before velad
 }
 
 start() {
@@ -39,7 +39,7 @@ start() {
     fi
 
     # 5. The mixer state that the audio bring-up depends on. These three are not
-    #    cosmetic — see docs/cronos-min-design.md §2.7:
+    #    cosmetic — see docs/design.md §2.7:
     #      Speaker Safe Mode A attenuates ~30 dB if left at 1
     #      Ext_Speaker_Amp_Switch toggles the amp reset line (gpio-392)
     #    Never write the amp switch. Only clear the safe-mode cap.

@@ -1,4 +1,4 @@
-# cronos-min — build entry points.
+# Vela — build entry points.
 #
 # Every number in docs/ is reproducible with one command, and every gate fails
 # the build rather than the device.
@@ -15,9 +15,9 @@
 # Nothing here flashes anything. Flashing is tools/deploy.sh, dry-run by default.
 #
 # Portability: GNU make is assumed (it ships with macOS, and comes with Git Bash
-# or Chocolatey on Windows). The recursive `python tools/cronos.py` calls work on
+# or Chocolatey on Windows). The recursive `python tools/vela.py` calls work on
 # any OS; the shell-script targets need a POSIX shell, which is why `make test`
-# on Windows wants Git Bash while `python tools/cronos.py test` does not.
+# on Windows wants Git Bash while `python tools/vela.py test` does not.
 
 ROOT      := $(CURDIR)
 BUILD     := $(ROOT)/build
@@ -49,7 +49,7 @@ test:
 	@sh tests/run.sh
 
 doctor:
-	@$(PY) tools/cronos.py doctor
+	@$(PY) tools/vela.py doctor
 
 check:
 	@bash kernel/build.sh --check
@@ -89,11 +89,11 @@ sizes:
 	@$(PY) tools/report-sizes.py $(BUILD)
 
 release:
-	@$(PY) tools/cronos.py release
+	@$(PY) tools/vela.py release
 
 # The Linux-only steps without a Linux host.
 docker-test:
-	@$(PY) tools/cronos.py docker test
+	@$(PY) tools/vela.py docker test
 
 clean:
 	@$(PY) -c "import shutil,os; [shutil.rmtree(p, True) for p in ('build','dist')]"

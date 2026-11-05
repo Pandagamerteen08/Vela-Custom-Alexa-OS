@@ -1,4 +1,4 @@
-# cronos-min DEV fragment — a separately flashable, debuggable kernel.
+# Vela DEV fragment — a separately flashable, debuggable kernel.
 #
 # Keep a dev-config boot.img in /store/boot/dev.img. When a prod build shows a
 # black panel and the device still responds to fastboot, this image plus a

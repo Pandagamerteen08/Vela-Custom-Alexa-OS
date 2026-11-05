@@ -194,7 +194,7 @@ fi
     --kernel "$KERNEL_FINAL" \
     --ramdisk "$INITRAMFS" \
     --cmdline-file "$CMDLINE_FILE" \
-    --name "cronos-min-$VERSION" \
+    --name "vela-$VERSION" \
     --out "$BOOT_OUT"
 
 log "done: $BOOT_OUT (kernel $VERSION$([ "$TRIM" = 1 ] && echo ', trimmed')$([ "$DEV" = 1 ] && echo ', dev'))"

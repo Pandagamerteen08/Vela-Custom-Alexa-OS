@@ -5,7 +5,7 @@ Run after a build (`make sizes`). Every artifact is compared with its target and
 its fail threshold, so a regression is visible in one line instead of three
 weeks later on a device with a full partition.
 
-Gates (from docs/cronos-min-design.md §3.1):
+Gates (from docs/design.md §3.1):
     root.squashfs  target 7-10 MB, fail > 20 MB
     boot.img       target 9.5-13 MB, fail > 15.5 MB (partition is 16 MB)
     resident flash total fail > 150 MB

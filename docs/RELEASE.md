@@ -7,7 +7,7 @@ A release is a tag, a pack attached to that tag, and a checksum file that makes
 
 ```sh
 # 1. make sure the tree is clean and the host checks pass
-python tools/cronos.py test
+python tools/vela.py test
 
 # 2. bump the version in CHANGELOG.md, commit it
 git commit -am "release 0.1.0"
@@ -18,14 +18,14 @@ git push origin main --tags
 ```
 
 `.github/workflows/release.yml` then builds the pack in the pinned container and
-attaches `cronos-min-0.1.0.tar.gz`, the matching `.zip`, `SHA256SUMS.txt` and
+attaches `vela-0.1.0.tar.gz`, the matching `.zip`, `SHA256SUMS.txt` and
 `release.json` to the GitHub Release for that tag. It uses the workflow's own
 `GITHUB_TOKEN` — no personal access token is stored anywhere.
 
 ## What the pack contains
 
 ```
-cronos-min-<version>/
+vela-<version>/
   images/            boot.img, boot.img.dev, root.squashfs, manifest.json,
                      initramfs.cpio.gz  (whichever were built)
   RELEASE.md         generated: what is inside, install steps, known limits
@@ -45,12 +45,12 @@ toolchain:
 
 ```sh
 # Linux host with a cross compiler:
-make rootfs && make boot           # or: cronos.py docker release
-python tools/cronos.py release --version 0.1.0 --out dist
+make rootfs && make boot           # or: vela.py docker release
+python tools/vela.py release --version 0.1.0 --out dist
 
 gh release create v0.1.0 dist/* \
-   --title "cronos-min 0.1.0" \
-   --notes-file dist/cronos-min-0.1.0/RELEASE.md \
+   --title "Vela 0.1.0" \
+   --notes-file dist/vela-0.1.0/RELEASE.md \
    --prerelease
 ```
 
@@ -60,7 +60,7 @@ has printed real numbers, no build here deserves to be called stable.
 ## Verifying a release, as a user
 
 ```sh
-tar xzf cronos-min-0.1.0.tar.gz && cd cronos-min-0.1.0
+tar xzf vela-0.1.0.tar.gz && cd vela-0.1.0
 sha256sum -c SHA256SUMS.txt        # Linux
 shasum -a 256 -c SHA256SUMS.txt    # macOS
 less RELEASE.md
@@ -83,7 +83,7 @@ the on-disk formats:
 
 ## Signing, and what is missing
 
-Slot manifests are specified as Ed25519-signed (`docs/cronos-min-design.md` §7)
+Slot manifests are specified as Ed25519-signed (`docs/design.md` §7)
 and the initramfs is specified to refuse unsigned ones in production mode. That
 is not implemented yet, so today every build prints:
 
@@ -97,9 +97,9 @@ integrity is worse than one that admits it has none.
 
 ## Release checklist
 
-- [ ] `python tools/cronos.py test` green on Linux, macOS and Windows (CI does this)
+- [ ] `python tools/vela.py test` green on Linux, macOS and Windows (CI does this)
 - [ ] `CHANGELOG.md` has an entry with a date, and the version matches the tag
 - [ ] `make sizes` does not report anything over a gate
 - [ ] `RELEASE.md` lists which artifacts are present and which were not built
-- [ ] the "known limits" section still says `cronosd` does not exist (update when it does)
+- [ ] the "known limits" section still says `velad` does not exist (update when it does)
 - [ ] tag is annotated (`git tag -a`), not lightweight, so the tag carries a message

@@ -154,7 +154,7 @@ cp -a "$ROOT/rootfs/overlay/." "$TREE/"
 if [ "$VARIANT" = "inittab" ]; then
     log "variant inittab: using the OpenRC-free inittab"
     cp "$TREE/etc/inittab.busybox" "$TREE/etc/inittab"
-    rm -f "$TREE"/etc/init.d/cronos-*
+    rm -f "$TREE"/etc/init.d/vela-*
 fi
 
 # The squashfs is read-only, so every mountpoint must exist in the image.
@@ -174,8 +174,8 @@ for f in sbin/init bin/busybox etc/inittab; do
     fi
 done
 [ "$missing" = "0" ] || die "refusing to pack an unbootable tree"
-if [ ! -e "$TREE/usr/sbin/cronosd" ] && [ ! -e "$TREE/bin/cronosd" ]; then
-    log "note: no cronosd in the tree yet (P4 not built); init will report it and"
+if [ ! -e "$TREE/usr/sbin/velad" ] && [ ! -e "$TREE/bin/velad" ]; then
+    log "note: no velad in the tree yet (P4 not built); init will report it and"
     log "      drop to the serial console instead of respawning forever"
 fi
 
