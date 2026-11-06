@@ -493,8 +493,12 @@ def cmd_release(args):
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(p, dest)
         written.append((dest, arc))
-    (stage / "RELEASE.md").write_text(release_md, encoding="utf-8")
-    (stage / "SHA256SUMS.txt").write_text("\n".join(checks_lines) + "\n", encoding="utf-8")
+    # newline="\n" on every generated artifact: Python's text mode rewrites \n to
+    # \r\n on Windows, and sha256sum -c then looks for a file named
+    # "tools/deploy.sh\r", which fails every entry in the pack.
+    (stage / "RELEASE.md").write_text(release_md, encoding="utf-8", newline="\n")
+    (stage / "SHA256SUMS.txt").write_text("\n".join(checks_lines) + "\n",
+                                          encoding="utf-8", newline="\n")
 
     tarball = out / f"vela-{version}.tar.gz"
     with tarfile.open(tarball, "w:gz") as tf:
@@ -512,7 +516,8 @@ def cmd_release(args):
 
     digest_lines = [f"{sha256(tarball)}  {tarball.name}",
                     f"{sha256(zippath)}  {zippath.name}"]
-    (out / "SHA256SUMS.txt").write_text("\n".join(digest_lines) + "\n", encoding="utf-8")
+    (out / "SHA256SUMS.txt").write_text("\n".join(digest_lines) + "\n",
+                                        encoding="utf-8", newline="\n")
 
     manifest = {
         "version": version,
@@ -525,7 +530,7 @@ def cmd_release(args):
         "files": len(written),
     }
     (out / "release.json").write_text(json.dumps(manifest, indent=2) + "\n",
-                                      encoding="utf-8")
+                                      encoding="utf-8", newline="\n")
 
     print()
     print(f"release {version} (commit {rev})")
