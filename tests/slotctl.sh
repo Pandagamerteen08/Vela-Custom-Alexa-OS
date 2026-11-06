@@ -7,6 +7,17 @@
 # on-media behaviour is not), yet every state transition is exercised here.
 set -u
 
+# slotctl is device code: it uses fsync and O_DIRECTORY, the Linux dirfd API that
+# MSYS/MinGW does not provide. The A/B state machine is exercised on Linux and
+# macOS; on Windows there is nothing to compile it against, and reporting a
+# missing system header as a failed test is worse than saying so.
+case "$(uname -s 2>/dev/null)" in
+    MINGW*|MSYS*|CYGWIN*)
+        echo "SKIP: slotctl needs POSIX fsync/O_DIRECTORY, which Windows does not have"
+        echo "      (the A/B state machine is exercised on Linux and macOS)"
+        exit 0 ;;
+esac
+
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 BIN=${BIN:-$ROOT/build/slotctl}
 FAILS=0

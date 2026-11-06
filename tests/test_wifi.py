@@ -64,6 +64,9 @@ class WifiConfig(unittest.TestCase):
         self.assertIn('psk="correct horse"', out)
         self.assertIn("key_mgmt=WPA-PSK", out)
 
+    @unittest.skipIf(os.name == "nt",
+                     "Windows chmod cannot express 0600 (it only toggles the "
+                     "read-only bit); the file is written by the on-device helper")
     def test_output_is_root_only(self):
         self.assertEqual(self._run("SSID=HomeNet\nPSK=correct horse\n").returncode, 0)
         self.assertEqual(stat.S_IMODE(os.stat(self.out).st_mode), 0o600)

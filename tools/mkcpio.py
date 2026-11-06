@@ -34,6 +34,25 @@ def _pad4(n):
     return (4 - (n % 4)) % 4
 
 
+def _host_perm(full, st):
+    """Permission bits for an archive entry, on hosts that have none.
+
+    Windows reports 0o666 for every regular file because its filesystem model
+    has no execute bit. Taking that at face value ships an initramfs whose /init
+    is not executable, so infer the bit from the content instead: an ELF binary
+    or a #! script is executable (0o755), anything else is a plain 0o644.
+    """
+    perm = stat.S_IMODE(st.st_mode)
+    if os.name == "nt" and stat.S_ISREG(st.st_mode):
+        try:
+            with open(full, "rb") as f:
+                head = f.read(4)
+        except OSError:
+            return perm
+        return 0o755 if head[:4] == b"\x7fELF" or head[:2] == b"#!" else 0o644
+    return perm
+
+
 def _entry(name, mode, data, ino, nlink, mtime, rdev=0, size=None):
     name_b = name.encode() + b"\0"
     size = len(data) if size is None else size
@@ -88,7 +107,7 @@ def create(root, mtime=0):
         st = os.lstat(full)
         ino += 1
         arcname = "." if rel == "." else "./" + rel.replace(os.sep, "/")
-        perm = stat.S_IMODE(st.st_mode)
+        perm = _host_perm(full, st)
 
         if stat.S_ISLNK(st.st_mode):
             target = os.readlink(full)

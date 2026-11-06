@@ -191,7 +191,11 @@ def cmd_pack(args):
     second = _read(args.second) if args.second else b""
 
     if args.cmdline_file:
-        cmdline = _read(args.cmdline_file).decode().replace("\n", " ").strip()
+        # split() rather than replace("\n", " "): a Windows host writes the file
+        # with CRLF, and a surviving \r ends up inside the kernel cmdline, where
+        # it reads back as a bogus newline. Any whitespace run becomes one space,
+        # which is what the kernel's own cmdline parser does.
+        cmdline = " ".join(_read(args.cmdline_file).decode().split())
     else:
         cmdline = args.cmdline or ""
 
