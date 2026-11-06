@@ -29,7 +29,7 @@ sudo apt install -y build-essential git python3 bc bison flex \
 Then, in the repository:
 
 ```sh
-git clone https://github.com/Pandagamerteen08/Bloom-Alexa-OS Vela
+git clone https://github.com/Pandagamerteen08/Vela-Custom-Alexa-OS Vela
 cd Vela
 python3 tools/vela.py doctor      # what this machine can now build
 make test                         # every host check
