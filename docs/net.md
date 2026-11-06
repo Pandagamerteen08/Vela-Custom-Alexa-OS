@@ -35,9 +35,30 @@ If a build has 2.10+, expect this line in the log and stop:
 wlan0: CTRL-EVENT-DISCONNECTED bssid=... reason=2
 ```
 
-Alpine 3.20 does not ship 2.9. Build it from source in the chroot with the default
-config (`CONFIG_DRV_WEXT` off, `CONFIG_DRV_NL80211` on), or pull the package from an
-older branch for that one package.
+### Which Alpine branches still carry 2.9
+
+Read out of the `armhf` `APKINDEX` for each branch (armhf is the rootfs
+architecture), not from memory:
+
+| Branch | `wpa_supplicant` |
+|---|---|
+| `v3.9` | `2.7-r5` |
+| `v3.10` | `2.8-r5` |
+| `v3.11`, `v3.12` | `2.9-r8` |
+| `v3.13` | `2.9-r11` |
+| `v3.14` | `2.9-r14` |
+| **`v3.15`** | **`2.9-r17`** — newest branch with 2.9 |
+| `v3.16` … `v3.21` | `2.10-r…`  (`v3.20` is `2.10-r11`) |
+
+`2.9-r6` exists in no Alpine release at all, so a pin to it fails before `apk`
+looks at the network. Two ways to get 2.9, in order of preference:
+
+1. **Build it from source in the chroot** (`docs/BUILD.md` step 4), with the
+default config (`CONFIG_DRV_WEXT` off, `CONFIG_DRV_NL80211` on). Keeps every
+other package on 3.20.
+2. **Borrow the package from `v3.15`** and pin `wpa_supplicant=2.9-r17`. One extra
+repository line, but a five-release-old binary (and its `libnl3`) inside a 3.20
+rootfs: re-check `musl` and `libnl3` after it installs.
 
 ## Failure mode 2: pinning a BSSID
 

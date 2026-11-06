@@ -208,13 +208,26 @@ mksquashfs tree root.squashfs -comp xz -b 131072 -no-xattrs -all-root -noappend
 Output: `build/root.squashfs` and `build/manifest.json` (sha256, size, build id).
 
 **Expect a real fight here with one package.** `wpa_supplicant` is pinned to
-`2.9-r6` because 2.10+ advertises RSN replay counters the vendor driver does not
+`2.9` because 2.10+ advertises RSN replay counters the vendor driver does not
 implement, and every AP then deauths with reason 2 — which looks exactly like a
-wrong passphrase and can waste a day. Alpine 3.20 does not ship 2.9. Your   options, in order of preference:
+wrong passphrase and can waste a day.
 
-1. Build 2.9 from source in the chroot (see `docs/net.md`).
-2. Point `MIRROR`/`ALPINE_BRANCH` at `v3.17` for that one package.
-3. Ship 2.11 and accept that Wi-Fi will deauth; do not do this and then debug
+Alpine 3.20 does not ship 2.9, and neither does any branch from `v3.16` up; they
+all carry 2.10. The newest branch that still has 2.9 is `v3.15`, which ships
+`2.9-r17` (see the branch table in `docs/net.md`). No Alpine release has ever
+shipped `2.9-r6` — an earlier revision of this page pinned to it, and that pin
+can never resolve.
+
+So the `apk add` below **stops on this package** against the default `v3.20`
+repositories, and it does so on purpose: better a failed build than a rootfs with
+a supplicant that deauths every AP. Your options, in order of preference:
+
+1. Build 2.9 from source in the chroot (see `docs/net.md`). The only option that
+   keeps the rest of the tree on 3.20.
+2. Add `v3.15` as an extra repository for that one package and pin
+   `wpa_supplicant=2.9-r17`. Faster, but it mixes a five-release-old binary and
+   its `libnl3` into a 3.20 rootfs — re-check `musl` and `libnl3` afterwards.
+3. Ship 2.10 and accept that Wi-Fi will deauth; do not do this and then debug
    the passphrase.
 
 The 20 MB gate is enforced. If it fails, find the growth before arguing with the

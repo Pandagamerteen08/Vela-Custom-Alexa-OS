@@ -66,14 +66,18 @@ PKGS=$("$PY" "$ROOT/tools/packages.py" apk-args --file "$ROOT/rootfs/packages.tx
     die "packages.txt failed validation (every package needs a justification)"
 [ -n "$PKGS" ] || die "package list is empty"
 
-# wpa_supplicant is pinned to 2.9 on purpose; Alpine $ALPINE_VER may not carry it.
+# wpa_supplicant is pinned to 2.9 on purpose, and no Alpine branch from v3.16 on
+# ships it (v3.15 has 2.9-r17; everything else here is v3.20). Say exactly that
+# now, instead of letting `apk add` print a bare "no such package".
 log "packages: $PKGS"
 case "$PKGS" in
     *"wpa_supplicant=2.9"*)
-        log "note: wpa_supplicant 2.9 is not in Alpine $ALPINE_VER; either"
-        log "      (a) build it from source (docs/net.md), or"
-        log "      (b) point MIRROR/ALPINE_BRANCH at v3.17 for that one package."
-        log "      Do not substitute 2.11: RSN replay counters deauth every AP."
+        log "note: wpa_supplicant 2.9 is not in Alpine $ALPINE_VER (v3.16+ ship 2.10),"
+        log "      so the apk step below stops on it unless you do one of:"
+        log "      (a) build 2.9 from source in the chroot (docs/net.md), or"
+        log "      (b) add v3.15 as an extra repo for that package and pin"
+        log "          wpa_supplicant=2.9-r17."
+        log "      Do not substitute 2.10: RSN replay counters deauth every AP."
         ;;
 esac
 

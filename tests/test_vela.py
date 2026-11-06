@@ -14,6 +14,7 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "tools"))
 
@@ -64,6 +65,37 @@ class TestDoctor(unittest.TestCase):
         self.assertIn("host checks", out)
         # It must name the OS it thinks it is on, not a hardcoded one.
         self.assertIn(vela.platform.system(), out)
+
+
+class TestToolchainDetection(unittest.TestCase):
+    def test_versioned_gcc10_driver_counts_as_found(self):
+        """gcc-10-aarch64-linux-gnu (universe) ships only aarch64-linux-gnu-gcc-10.
+
+        A host set up exactly as docs/host-setup.md says therefore has no
+        unversioned driver, and reporting it as missing its kernel toolchain is
+        the bug this guards.
+        """
+        real = vela.which
+
+        def fake(name):
+            if name == "aarch64-linux-gnu-gcc-10":
+                return "/usr/bin/aarch64-linux-gnu-gcc-10"
+            if name == "aarch64-linux-gnu-gcc":
+                return None
+            return real(name)
+
+        buf = io.StringIO()
+        stdout, sys.stdout = sys.stdout, buf
+        try:
+            with mock.patch.object(vela, "which", fake):
+                rc = vela.main(["doctor"])
+        finally:
+            sys.stdout = stdout
+        self.assertEqual(rc, 0)
+        rows = [line for line in buf.getvalue().splitlines()
+                if line.strip().startswith("aarch64-linux-gnu-gcc ")]
+        self.assertEqual(len(rows), 1, buf.getvalue())
+        self.assertIn("yes", rows[0])
 
 
 class TestRelease(unittest.TestCase):

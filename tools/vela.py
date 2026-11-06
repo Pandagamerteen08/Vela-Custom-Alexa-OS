@@ -234,6 +234,12 @@ def cmd_doctor(args):
         hit = which(name)
         if name == "python3":
             hit = hit or which("python")
+        # gcc-10-aarch64-linux-gnu (universe) ships only a versioned driver,
+        # aarch64-linux-gnu-gcc-10, and the unversioned name belongs to the
+        # default cross package. Looking for the bare name alone reported a
+        # correctly provisioned host as missing its kernel toolchain.
+        if name == "aarch64-linux-gnu-gcc":
+            hit = hit or which("aarch64-linux-gnu-gcc-10")
         found[name] = hit
         mark = "yes" if hit else "-"
         if not hit and need == "always":
@@ -253,7 +259,7 @@ def cmd_doctor(args):
           f"(python tools/vela.py test)")
     if platform.system() == "Linux":
         print(f"    kernel build           {'yes' if native_kernel else 'no'}"
-              f"{'' if native_kernel else '  -> install gcc-aarch64-linux-gnu (GCC <= 10)'}")
+              f"{'' if native_kernel else '  -> install gcc-10-aarch64-linux-gnu (driver: aarch64-linux-gnu-gcc-10)'}")
         print(f"    rootfs build           {'yes' if native_rootfs else 'no'}"
               f"{'' if native_rootfs else '  -> squashfs-tools + qemu-user-static + binfmt'}")
     else:

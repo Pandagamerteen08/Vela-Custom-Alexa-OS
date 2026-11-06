@@ -84,7 +84,8 @@ if [ "${USE_CLANG:-0}" = "1" ]; then
 else
     CC_BIN="${CROSS_COMPILE}gcc"
     command -v "$CC_BIN" >/dev/null || die \
-        "$CC_BIN not found. Install an aarch64 cross compiler (gcc-aarch64-linux-gnu) \
+        "$CC_BIN not found. Install an aarch64 cross compiler \
+(apt install gcc-10-aarch64-linux-gnu, then CROSS_COMPILE=aarch64-linux-gnu-10-) \
 or set CROSS_COMPILE. For this 4.9 tree prefer GCC 6-10."
     CC_MAJOR=$("$CC_BIN" -dumpversion | cut -d. -f1)
     if [ "$CC_MAJOR" -ge 12 ]; then

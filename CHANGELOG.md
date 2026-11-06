@@ -46,6 +46,12 @@ on-disk `manifest.json` and `slot.ptr` formats, and each such bump says so.
 
 ### Fixed
 
+- `rootfs/packages.txt` pinned `wpa_supplicant=2.9-r6`, a version no Alpine
+  release has ever shipped, and `docs/BUILD.md` offered `v3.17` as the fallback
+  branch — which carries 2.10, the version that deauths on this driver. The pin
+  is now `2.9-r17` (v3.15, the newest branch with 2.9), and `docs/net.md` lists
+  which branch carries which version, read from each branch's `armhf`
+  `APKINDEX`.
 - `kernel/build.sh --check` fetched the 2 GB kernel tree before deciding it was
   only checking: in CI that turned a sanity gate into a clone that blew the job.
 - The initramfs busybox stage in the `Dockerfile` installed into an empty root
@@ -61,6 +67,22 @@ on-disk `manifest.json` and `slot.ptr` formats, and each such bump says so.
 - `tests/mkrootfs.sh` asserted that the test tree's own `inittab` survived,
   which is wrong: the overlay is authoritative and overwrites it. The check now
   asserts the OpenRC-free variant really has no OpenRC and does start `velad`.
+- `vela.py doctor` and `make toolchain` probed only for `aarch64-linux-gnu-gcc`,
+  but `gcc-10-aarch64-linux-gnu` — the package every doc tells you to install —
+  ships just `aarch64-linux-gnu-gcc-10`. A host set up exactly as documented was
+  reported as missing its kernel toolchain and told to install what it already
+  had, which is how a correct Zorin box gets called a broken one. Both now accept
+  the versioned driver, and a unit test pins it.
+- `docs/platforms.md` told Fedora and Arch readers to install the distribution
+  cross GCC with no version gate. Arch ships 16.2.0 (Arch package API) and
+  Fedora's tracks its own release, so both are far too new for a 4.9 tree. The
+  section now says to check `aarch64-linux-gnu-gcc -dumpversion` and use the
+  container when it reports 12 or more.
+- `docs/design.md` still prescribed plain `gcc-aarch64-linux-gnu` in its P0
+  install block (GCC 11 on jammy, 13 on noble) — the compiler that cannot build
+  this 4.9 tree, and the one the other three docs were already fixed to avoid.
+  `kernel/build.sh`'s not-found message now names the GCC 10 package and the
+  `aarch64-linux-gnu-10-` prefix.
 
 ## [0.1.0] - 2026-11-05
 

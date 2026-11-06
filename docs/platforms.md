@@ -39,6 +39,20 @@ android-tools`.
 Arch: `pacman -S base-devel git python bc bison flex aarch64-linux-gnu-gcc
 qemu-user-static squashfs-tools cpio dtc android-tools`.
 
+Neither distribution packages GCC 10, and the cross compiler each one ships
+tracks that distribution's own GCC — Arch's is 16 (checked against the Arch
+package API at the time of writing), well past the point where Linux 4.9 builds.
+So on these hosts check first:
+
+```sh
+aarch64-linux-gnu-gcc -dumpversion    # 12 or higher: use the container
+```
+
+If it reports 12 or more, run the kernel step in the container
+(`python3 tools/vela.py docker kernel`) rather than fighting the toolchain;
+`kernel/build.sh` warns and then continues, which is how a Fedora or Arch host
+ends up half an hour into a wall of `cc1` errors.
+
 Then, on any of them:
 
 ```sh

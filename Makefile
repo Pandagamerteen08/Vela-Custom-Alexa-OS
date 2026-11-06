@@ -57,7 +57,7 @@ check:
 
 toolchain:
 	@echo "python:    $(PY)"
-	@echo "cross gcc: $(shell command -v aarch64-linux-gnu-gcc || echo MISSING)"
+	@echo "cross gcc: $(shell command -v aarch64-linux-gnu-gcc-10 || command -v aarch64-linux-gnu-gcc || echo MISSING)"
 	@echo "dtc:       $(shell command -v dtc || echo 'optional, tests only')"
 	@echo "mksquashfs:$(shell command -v mksquashfs || echo MISSING)"
 
