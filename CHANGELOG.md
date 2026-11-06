@@ -9,6 +9,12 @@ on-disk `manifest.json` and `slot.ptr` formats, and each such bump says so.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-06
+
+First tagged release: the Wi-Fi path and a rootfs that builds without a
+package no 3.20 repository carries. Still **pre-hardware** — nothing has booted,
+and this is a docs-and-tools pack, not an installable image.
+
 ### Added
 
 - First boot now comes up with a network and no console step: `vela-net` is in the
@@ -124,5 +130,6 @@ hardware yet**, and the kernel build has never been executed by the author.
   checks including the 20 MB gate.
 
 <!-- Relative links, so a repository rename does not break them. -->
-[Unreleased]: ../../compare/v0.1.0...HEAD
+[Unreleased]: ../../compare/v0.2.0...HEAD
+[0.2.0]: ../../releases/tag/v0.2.0
 [0.1.0]: ../../releases/tag/v0.1.0
