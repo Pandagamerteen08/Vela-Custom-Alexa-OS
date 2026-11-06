@@ -51,14 +51,18 @@ architecture), not from memory:
 | `v3.16` … `v3.21` | `2.10-r…`  (`v3.20` is `2.10-r11`) |
 
 `2.9-r6` exists in no Alpine release at all, so a pin to it fails before `apk`
-looks at the network. Two ways to get 2.9, in order of preference:
+looks at the network, and `2.9-r17` only resolves against `v3.15`.
 
-1. **Build it from source in the chroot** (`docs/BUILD.md` step 4), with the
-default config (`CONFIG_DRV_WEXT` off, `CONFIG_DRV_NL80211` on). Keeps every
-other package on 3.20.
-2. **Borrow the package from `v3.15`** and pin `wpa_supplicant=2.9-r17`. One extra
-repository line, but a five-release-old binary (and its `libnl3`) inside a 3.20
-rootfs: re-check `musl` and `libnl3` after it installs.
+`tools/mkrootfs.sh` therefore **builds 2.9 from source in the chroot**, which is
+what actually ships (`docs/BUILD.md` step 4). The config is
+`rootfs/wpa-2.9.config`: PSK-only, `CONFIG_DRIVER_NL80211` (2.9's spelling —
+`CONFIG_DRV_NL80211` is the newer name, and 2.9 silently ignores it, which builds
+a supplicant that lists no drivers and then fails at runtime), no D-Bus, no TLS
+library. The build runs the artifact and fails unless it reports `v2.9`.
+
+The alternative, if you are in a hurry and accept the risk: add `v3.15` as an
+extra repository and pin `wpa_supplicant=2.9-r17`. One line, but a five-release-old
+binary (and its `libnl3`) inside a 3.20 rootfs — re-check `musl` and `libnl3`.
 
 ## Failure mode 2: pinning a BSSID
 

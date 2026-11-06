@@ -11,6 +11,12 @@ on-disk `manifest.json` and `slot.ptr` formats, and each such bump says so.
 
 ### Added
 
+- The rootfs builds `wpa_supplicant` **2.9 from source** inside the chroot, so the
+  build no longer depends on a package no 3.20 repository carries:
+  `rootfs/wpa-2.9.config` is PSK-only (`CONFIG_DRIVER_NL80211`, no wext, no
+  D-Bus, no TLS library, so the result links libc and libnl-3 only), the tarball
+  is SHA-256-pinned with `WPA_SRC_TARBALL=` for offline builds, and the packed
+  binary is run under qemu and must report `v2.9`. `--no-wpa` skips the step.
 - `tools/vela.py` — one cross-platform entry point (`doctor`, `test`,
   `release`, `docker`) so the host tooling runs on Linux, macOS and Windows
   alike, with no bash requirement.
@@ -49,8 +55,8 @@ on-disk `manifest.json` and `slot.ptr` formats, and each such bump says so.
 - `rootfs/packages.txt` pinned `wpa_supplicant=2.9-r6`, a version no Alpine
   release has ever shipped, and `docs/BUILD.md` offered `v3.17` as the fallback
   branch — which carries 2.10, the version that deauths on this driver. The pin
-  is now `2.9-r17` (v3.15, the newest branch with 2.9), and `docs/net.md` lists
-  which branch carries which version, read from each branch's `armhf`
+  is now gone entirely: 2.9 is built from source in the chroot, and `docs/net.md`
+  lists which branch carries which version, read from each branch's `armhf`
   `APKINDEX`.
 - `kernel/build.sh --check` fetched the 2 GB kernel tree before deciding it was
   only checking: in CI that turned a sanity gate into a clone that blew the job.

@@ -45,6 +45,15 @@ make_tree() {
 "$ROOT/tools/mkrootfs.sh" --dry-run > "$TMP/dry.log" 2>&1
 if [ $? -eq 0 ]; then ok; else fail "dry run failed"; sed 's/^/    /' "$TMP/dry.log"; fi
 grep -q "packages=.*busybox" "$TMP/dry.log" && ok || ok   # log text is not a contract
+# the plan must say the supplicant is built, not installed from a repository
+if grep -q "wpa_supplicant .* from source" "$TMP/dry.log"; then ok; else
+    fail "dry run does not plan the from-source supplicant"; sed 's/^/    /' "$TMP/dry.log"
+fi
+"$ROOT/tools/mkrootfs.sh" --dry-run --no-wpa > "$TMP/nowpa.log" 2>&1
+if [ $? -eq 0 ]; then ok; else fail "--dry-run --no-wpa failed"; fi
+if grep -q "skipped (--no-wpa)" "$TMP/nowpa.log"; then ok; else
+    fail "--no-wpa is not reported in the plan"; sed 's/^/    /' "$TMP/nowpa.log"
+fi
 
 # 2. a complete tree packs, and writes a manifest with a real sha256
 make_tree "$TMP/tree"

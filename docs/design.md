@@ -408,10 +408,10 @@ already in the eleven appended DTBs. **Verify by reading them, do not assume.**
   the vendor driver generates its own RSN IE with capabilities 0, hostapd compares and
   deauthenticates with reason 2, which the supplicant reports as a wrong key. 2.9 associates
   and completes the handshake. **This is a hard version pin, documented in the build.** Pin it
-  in `apk` with `wpa_supplicant=2.9-r17` and add a build-time assertion so an Alpine branch
-  bump cannot silently break it. Note that the pin only resolves against `v3.15`: no branch
-  from `v3.16` up ships 2.9, so the build either compiles it from source or borrows that one
-  package (`docs/net.md`).
+  from source at build time (`rootfs/wpa-2.9.config`) and assert the artifact's `-v` output is
+  `2.9` before packing, so a repository bump cannot silently swap in 2.10. No Alpine branch
+  from `v3.16` up ships 2.9, so a package pin is not an option; `docs/net.md` records the
+  version table.
 - **Firmware**: `WIFI_RAM_CODE_MT7668.bin`, `WIFI_RAM_CODE2_SDIO_MT7668.bin`,
   `mt7668_patch_e2_hdr.bin`, `EEPROM_MT7668.bin`, `TxPwrLimit_MT76x8.dat`, `wifi.cfg` — copied
   from the LineageOS `/vendor/firmware`. No WMT daemon involved.

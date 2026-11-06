@@ -207,28 +207,29 @@ mksquashfs tree root.squashfs -comp xz -b 131072 -no-xattrs -all-root -noappend
 
 Output: `build/root.squashfs` and `build/manifest.json` (sha256, size, build id).
 
-**Expect a real fight here with one package.** `wpa_supplicant` is pinned to
-`2.9` because 2.10+ advertises RSN replay counters the vendor driver does not
-implement, and every AP then deauths with reason 2 — which looks exactly like a
-wrong passphrase and can waste a day.
+**One package is not installed by `apk`.** `wpa_supplicant` must be **2.9**:
+2.10+ advertises RSN replay counters the vendor driver does not implement, and
+every AP then deauths with reason 2 — which looks exactly like a wrong passphrase
+and can waste a day. No Alpine branch from `v3.16` up ships 2.9, and borrowing
+`v3.15`'s `2.9-r17` would drag a 2023 binary and its `libnl3` into a 3.20 tree
+(`docs/net.md` has the branch table).
 
-Alpine 3.20 does not ship 2.9, and neither does any branch from `v3.16` up; they
-all carry 2.10. The newest branch that still has 2.9 is `v3.15`, which ships
-`2.9-r17` (see the branch table in `docs/net.md`). No Alpine release has ever
-shipped `2.9-r6` — an earlier revision of this page pinned to it, and that pin
-can never resolve.
+So `mkrootfs.sh` **builds 2.9 from source inside the chroot** and keeps everything
+else on 3.20:
 
-So the `apk add` below **stops on this package** against the default `v3.20`
-repositories, and it does so on purpose: better a failed build than a rootfs with
-a supplicant that deauths every AP. Your options, in order of preference:
+- the tarball is pinned by SHA-256; set `WPA_SRC_TARBALL=/path/wpa_supplicant-2.9.tar.gz`
+  to build offline from a copy you already have;
+- `rootfs/wpa-2.9.config` is the build config: `CONFIG_DRIVER_NL80211`, no wext,
+  no D-Bus, no EAP and no TLS library at all, so the result links libc and
+  libnl-3 only (763 KiB stripped with the driver compiled in);
+- `build-base`, `linux-headers` and `libnl3-dev` go in as `--virtual` and are
+  removed again, so they never reach the image;
+- then the binary is **run** under qemu and the build fails unless it reports
+  `v2.9`. That assertion is the point of the step: a silent 2.10 substitution is
+  the one failure this project cannot afford.
 
-1. Build 2.9 from source in the chroot (see `docs/net.md`). The only option that
-   keeps the rest of the tree on 3.20.
-2. Add `v3.15` as an extra repository for that one package and pin
-   `wpa_supplicant=2.9-r17`. Faster, but it mixes a five-release-old binary and
-   its `libnl3` into a 3.20 rootfs — re-check `musl` and `libnl3` afterwards.
-3. Ship 2.10 and accept that Wi-Fi will deauth; do not do this and then debug
-   the passphrase.
+Expect the compile itself to take several minutes under qemu. `--no-wpa` skips
+the step if you are debugging something else; the image then has no Wi-Fi.
 
 The 20 MB gate is enforced. If it fails, find the growth before arguing with the
 gate:

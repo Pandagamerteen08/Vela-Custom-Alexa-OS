@@ -12,6 +12,7 @@
 #   tools/mkrootfs.sh --root /tmp/prepared      # pack an already-prepared tree
 #   tools/mkrootfs.sh --variant inittab         # no OpenRC (fallback if RAM is tight)
 #   tools/mkrootfs.sh --dev                     # include alsa-utils + apk-tools
+#   tools/mkrootfs.sh --no-wpa                  # skip the from-source supplicant
 #
 # Output: build/root.squashfs and build/manifest.json (sha256 + size + build id).
 set -euo pipefail
@@ -30,6 +31,15 @@ DRY=0
 DEV=0
 MAX_BYTES=$((20 * 1024 * 1024))
 QEMU=${QEMU:-/usr/bin/qemu-arm-static}
+# wpa_supplicant is built from source: no Alpine branch from v3.16 up ships 2.9,
+# and 2.10+ deauths every AP on this driver. Override WPA_SRC_TARBALL to build
+# offline; the checksum is what makes a silent version swap impossible.
+WPA_VER=${WPA_VER:-2.9}
+WPA_SHA256=${WPA_SHA256:-fcbdee7b4a64bea8177973299c8c824419c413ec2e3a95db63dd6a5dc3541f17}
+WPA_URL=${WPA_URL:-https://w1.fi/releases/wpa_supplicant-$WPA_VER.tar.gz}
+WPA_CONFIG=$ROOT/rootfs/wpa-$WPA_VER.config
+WPA_SRC_TARBALL=${WPA_SRC_TARBALL:-}
+BUILD_WPA=${BUILD_WPA:-1}
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -38,7 +48,8 @@ while [ $# -gt 0 ]; do
         --out) OUT=$2; shift 2 ;;
         --variant) VARIANT=$2; shift 2 ;;
         --dev) DEV=1; shift ;;
-        -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
+        --no-wpa) BUILD_WPA=0; shift ;;
+        -h|--help) sed -n '2,24p' "$0"; exit 0 ;;
         *) echo "unknown argument: $1" >&2; exit 2 ;;
     esac
 done
@@ -66,18 +77,14 @@ PKGS=$("$PY" "$ROOT/tools/packages.py" apk-args --file "$ROOT/rootfs/packages.tx
     die "packages.txt failed validation (every package needs a justification)"
 [ -n "$PKGS" ] || die "package list is empty"
 
-# wpa_supplicant is pinned to 2.9 on purpose, and no Alpine branch from v3.16 on
-# ships it (v3.15 has 2.9-r17; everything else here is v3.20). Say exactly that
-# now, instead of letting `apk add` print a bare "no such package".
+# wpa_supplicant is built from source in the chroot (build_wpa below), not
+# installed by apk: no Alpine branch from v3.16 up ships 2.9. A list that still
+# names it is a mistake, and this says why instead of leaving apk to report an
+# unsatisfiable pin.
 log "packages: $PKGS"
 case "$PKGS" in
-    *"wpa_supplicant=2.9"*)
-        log "note: wpa_supplicant 2.9 is not in Alpine $ALPINE_VER (v3.16+ ship 2.10),"
-        log "      so the apk step below stops on it unless you do one of:"
-        log "      (a) build 2.9 from source in the chroot (docs/net.md), or"
-        log "      (b) add v3.15 as an extra repo for that package and pin"
-        log "          wpa_supplicant=2.9-r17."
-        log "      Do not substitute 2.10: RSN replay counters deauth every AP."
+    *wpa_supplicant*)
+        die "packages.txt must not list wpa_supplicant: it is built from source (rootfs/wpa-$WPA_VER.config), not installed by apk. See docs/net.md."
         ;;
 esac
 
@@ -88,12 +95,82 @@ if [ "$DRY" = "1" ]; then
     log "  tree:     ${PREPARED:-$TREE}"
     log "  output:   $OUT"
     log "  overlay:  $ROOT/rootfs/overlay"
+    if [ "$BUILD_WPA" = "1" ]; then
+        log "  wpa:      build wpa_supplicant $WPA_VER from source ($WPA_CONFIG)"
+    else
+        log "  wpa:      skipped (--no-wpa): the image will have no supplicant"
+    fi
     log "  required on host: ${PREPARED:+nothing (prepared tree)}${PREPARED:-qemu-arm-static, root, mksquashfs}"
     exit 0
 fi
 
 command -v mksquashfs >/dev/null || die "mksquashfs not found (squashfs-tools)"
 command -v "${PY:-python3}" >/dev/null || die "python3 not found"
+
+sha256_of() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$1" | cut -d' ' -f1
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$1" | cut -d' ' -f1
+    else
+        "$PY" -c 'import hashlib,sys
+h = hashlib.sha256()
+with open(sys.argv[1], "rb") as f:
+    for chunk in iter(lambda: f.read(1 << 20), b""):
+        h.update(chunk)
+print(h.hexdigest())' "$1"
+    fi
+}
+
+# wpa_supplicant 2.9, built from source inside the chroot.
+#
+# Not `apk add`: no Alpine branch from v3.16 up ships 2.9, and 2.10+ advertises
+# RSN replay counters this driver does not implement (docs/net.md). Build deps
+# are --virtual and removed again, so none of them reach the image.
+build_wpa() {
+    tree=$1
+    [ -f "$WPA_CONFIG" ] || die "missing $WPA_CONFIG (the 2.9 build config)"
+    tarball=$BUILD/wpa_supplicant-$WPA_VER.tar.gz
+    if [ -n "$WPA_SRC_TARBALL" ]; then
+        tarball=$WPA_SRC_TARBALL
+        [ -f "$tarball" ] || die "WPA_SRC_TARBALL=$tarball does not exist"
+    elif [ ! -f "$tarball" ]; then
+        log "downloading wpa_supplicant $WPA_VER"
+        curl -fsSL -o "$tarball" "$WPA_URL" || die "could not download $WPA_URL"
+    fi
+    sum=$(sha256_of "$tarball")
+    [ "$sum" = "$WPA_SHA256" ] || \
+        die "$tarball sha256 is $sum, expected $WPA_SHA256 (do not bump WPA_VER without reading docs/net.md)"
+    log "building wpa_supplicant $WPA_VER from source in the chroot (qemu, several minutes)"
+    mkdir -p "$tree/tmp/wpa-build"
+    cp "$tarball" "$tree/tmp/wpa-build/wpa.tar.gz"
+    cp "$WPA_CONFIG" "$tree/tmp/wpa-build/wpa.config"
+    chroot "$tree" /usr/bin/qemu-arm-static /bin/sh -c '
+        set -e
+        cd /tmp/wpa-build
+        apk add --no-cache --virtual .wpa-build build-base linux-headers libnl3-dev >/dev/null
+        tar -xzf wpa.tar.gz
+        cd "wpa_supplicant-$1/wpa_supplicant"
+        cp /tmp/wpa-build/wpa.config .config
+        jobs=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || echo 2)
+        # 2.9 does not pass -DCONFIG_CRYPTO_INTERNAL through from .config, and
+        # without it sha1-internal.c compiles to nothing (rootfs/wpa-2.9.config).
+        make wpa_supplicant -j"$jobs" EXTRA_CFLAGS=-DCONFIG_CRYPTO_INTERNAL
+        mkdir -p /usr/sbin
+        cp wpa_supplicant /usr/sbin/wpa_supplicant
+        chmod 755 /usr/sbin/wpa_supplicant
+    ' vela "$WPA_VER" || die "wpa_supplicant $WPA_VER did not build (output above)"
+    # Run the artifact before it ships. This assertion is the whole point: a
+    # silent 2.10 substitution is the failure the project cannot afford.
+    built=$(chroot "$tree" /usr/bin/qemu-arm-static /usr/sbin/wpa_supplicant -v 2>&1 | head -1)
+    case "$built" in
+        *"v$WPA_VER"*) log "wpa_supplicant check: $built" ;;
+        *) die "built supplicant reports '$built', expected v$WPA_VER — do not ship 2.10 (docs/net.md)" ;;
+    esac
+    chroot "$tree" /usr/bin/qemu-arm-static /bin/sh -c \
+        'apk del .wpa-build >/dev/null 2>&1 || true; rm -rf /tmp/wpa-build' \
+        || log "warning: could not remove the wpa build tree (not fatal)"
+}
 
 # --- 2. assemble the tree ------------------------------------------------
 if [ -n "$PREPARED" ]; then
@@ -141,6 +218,12 @@ else
         chroot "$TREE" /usr/bin/qemu-arm-static /sbin/apk add --no-cache \
             alsa-utils apk-tools-static || log "warning: dev extras failed (not fatal)"
     fi
+    if [ "$BUILD_WPA" = "1" ]; then
+        build_wpa "$TREE"
+    else
+        log "note: --no-wpa: this image has no supplicant, so no Wi-Fi"
+    fi
+
     # strip inside the chroot so the right strip binary is used
     chroot "$TREE" /usr/bin/qemu-arm-static /bin/sh -c \
         'for f in $(find /usr/lib /usr/bin /usr/sbin /bin /sbin -type f 2>/dev/null); do

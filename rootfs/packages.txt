@@ -16,7 +16,13 @@ musl   # 650 KiB: the only libc; static linking everything would cost more flash
 openrc   # 308 KiB: dependency ordering + rc-status for two services; drop with --variant inittab if RAM is tight
 
 # --- network --------------------------------------------------------------
-wpa_supplicant=2.9-r17   # 2.0 MB: cfg80211 fullmac needs a supplicant; 2.10+ advertises RSN replay counters this driver lacks and every AP deauths (reason 2). 2.9-r17 is v3.15's, the newest Alpine branch that still ships 2.9: v3.16+ carry 2.10, so this pin cannot resolve against the default v3.20 repos (docs/net.md)
+# wpa_supplicant is deliberately NOT listed here: tools/mkrootfs.sh builds 2.9
+# from source in the chroot (rootfs/wpa-2.9.config, pinned tarball + sha256).
+# cfg80211 fullmac needs a supplicant, and 2.10+ advertises RSN replay counters
+# this driver lacks, so every AP deauths with reason 2. No Alpine branch from
+# v3.16 up ships 2.9, and v3.15's 2.9-r17 would drag a 2023 binary and its
+# libnl3 into a 3.20 tree — hence the build instead of a pin (docs/net.md).
+# A pin here now fails mkrootfs.sh on purpose, before apk runs.
 libnl3   # 1.0 MB of netlink bindings: wpa_supplicant's -Dnl80211 backend links against it
 
 # --- audio ----------------------------------------------------------------
