@@ -32,6 +32,19 @@ ARG DEBIAN_FRONTEND=noninteractive
 # this is a Linux 4.9 tree. GCC 12+ (bookworm, trixie) rejects constructs that
 # 4.9 and the MediaTek code use, so a newer base image costs an hour of
 # confusing errors rather than saving anything.
+# bullseye left LTS in August 2026: deb.debian.org/debian-security no longer
+# carries bullseye-security, so `apt-get update` fetches an index whose pool
+# files 404 ("perl-modules-5.32_...deb  404  Not Found") and the image never
+# builds. archive.debian.org still serves both suites, so point apt there and
+# stop enforcing Release validity dates that are now in the past.
+RUN set -eux; \
+    printf '%s\n' \
+      'deb http://archive.debian.org/debian bullseye main' \
+      'deb http://archive.debian.org/debian-security bullseye-security main' \
+      > /etc/apt/sources.list; \
+    printf 'Acquire::Check-Valid-Until "false";\nAcquire::Retries "3";\n' \
+      > /etc/apt/apt.conf.d/99archive
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
         bash build-essential ca-certificates curl \
         bc bison flex libssl-dev libelf-dev \

@@ -44,8 +44,10 @@ class Cpio(unittest.TestCase):
     def build_tree(self, tmp):
         os.makedirs(os.path.join(tmp, "bin"))
         os.makedirs(os.path.join(tmp, "sbin"))
-        with open(os.path.join(tmp, "init"), "w") as f:
-            f.write("#!/bin/sh\nexec /bin/sh\n")
+        # binary mode: text mode rewrites \n to \r\n on Windows, but the archive
+        # stores bytes verbatim, so a text-mode fixture cannot match on read-back
+        with open(os.path.join(tmp, "init"), "wb") as f:
+            f.write(b"#!/bin/sh\nexec /bin/sh\n")
         os.chmod(os.path.join(tmp, "init"), 0o755)
         with open(os.path.join(tmp, "bin", "busybox"), "wb") as f:
             f.write(b"\x7fELF" + b"\0" * 200)
