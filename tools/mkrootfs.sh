@@ -242,6 +242,8 @@ if [ "$VARIANT" = "inittab" ]; then
     log "variant inittab: using the OpenRC-free inittab"
     cp "$TREE/etc/inittab.busybox" "$TREE/etc/inittab"
     rm -f "$TREE"/etc/init.d/vela-*
+    # ...and the runlevel links with them, or they point at nothing.
+    rm -f "$TREE"/etc/runlevels/default/vela-*
 fi
 
 # The squashfs is read-only, so every mountpoint must exist in the image.

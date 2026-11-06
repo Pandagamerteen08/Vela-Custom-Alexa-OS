@@ -377,8 +377,10 @@ a loop, not an error message.
 ## Step 10 — What is still missing
 
 This repository builds a kernel, an initramfs and a rootfs. It does **not** yet
-contain `velad`, so there is no UI, no audio, no touch input and no network
-client. That is the next phase and it is the largest one:
+contain `velad`, so there is no UI, no audio and no touch input. Wi-Fi *does* come
+up on first boot (`vela-net` + `/data/wifi.conf`, see `docs/net.md`), but nothing
+above the supplicant consumes the connection yet. That is the next phase and it
+is the largest one:
 
 | Milestone | First demoable result |
 |---|---|

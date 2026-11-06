@@ -11,6 +11,12 @@ on-disk `manifest.json` and `slot.ptr` formats, and each such bump says so.
 
 ### Added
 
+- First boot now comes up with a network and no console step: `vela-net` is in the
+  `default` runlevel, and `/usr/sbin/vela-wifi-config` turns `SSID`/`PSK` from
+  `/data/wifi.conf` into a 0600 supplicant config in tmpfs, so the read-only image
+  never holds credentials. Bad or missing credentials leave Wi-Fi down with one
+  warning instead of a supplicant that silently never associates.
+  `tools/deploy.sh wifi <ssid> <psk>` provisions it over adb.
 - The rootfs builds `wpa_supplicant` **2.9 from source** inside the chroot, so the
   build no longer depends on a package no 3.20 repository carries:
   `rootfs/wpa-2.9.config` is PSK-only (`CONFIG_DRIVER_NL80211`, no wext, no

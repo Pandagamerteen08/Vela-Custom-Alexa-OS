@@ -1,0 +1,86 @@
+#!/bin/sh
+# vela-wifi-config — turn /data/wifi.conf into a supplicant config in /run.
+#
+# Why this exists: the rootfs is a read-only squashfs, so /etc/wpa_supplicant.conf
+# is a template with no credentials in it, and there is no UI on first boot to
+# type them into. /data is the only writable partition, so the credentials live
+# there and this turns them into a config the supplicant can read — written to
+# tmpfs, mode 0600, so nothing sensitive ever touches the image.
+#
+# /data/wifi.conf (0600), written by `tools/deploy.sh wifi <ssid> <psk>`:
+#
+#     SSID=MyNetwork
+#     PSK=correct horse battery staple     # 8-63 character passphrase
+#     PSK=0f1e2d...                        # or exactly 64 hex digits
+#     HIDDEN=1                             # optional: scan_ssid=1
+#
+# The PSK is never echoed and never passed on a command line.
+#
+# Exit status: 0 = config written, 1 = no or bad credentials (vela-net reports
+# it and leaves Wi-Fi down rather than starting a supplicant with no network).
+set -u
+
+CONF=${WIFI_CONF:-/data/wifi.conf}
+OUT=${WIFI_OUT:-/run/wpa_supplicant.conf}
+TEMPLATE=${WIFI_TEMPLATE:-/etc/wpa_supplicant.conf}
+
+die() { printf 'vela-wifi-config: %s\n' "$*" >&2; exit 1; }
+
+[ -r "$CONF" ] || die "$CONF not found: no Wi-Fi credentials provisioned"
+[ -r "$TEMPLATE" ] || die "$TEMPLATE missing (bad image)"
+
+# Quote and backslash escaping, because both are meaningful inside a
+# wpa_supplicant quoted string and an SSID may legitimately contain either.
+escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
+
+ssid=''
+psk=''
+hidden=''
+while IFS= read -r line || [ -n "$line" ]; do
+    line=$(printf '%s' "$line" | tr -d '\r')
+    case "$line" in ''|'#'*) continue ;; esac
+    key=${line%%=*}
+    val=${line#*=}
+    key=$(printf '%s' "$key" | tr -d ' \t')
+    case "$val" in
+        \"*\") val=${val#\"}; val=${val%\"} ;;
+        \'*\') val=${val#\'}; val=${val%\'} ;;
+    esac
+    case "$key" in
+        SSID)   ssid=$val ;;
+        PSK)    psk=$val ;;
+        HIDDEN) hidden=$val ;;
+        *)      : ;;
+    esac
+done < "$CONF"
+
+[ -n "$ssid" ] || die "SSID= is missing in $CONF"
+[ -n "$psk" ] || die "PSK= is missing in $CONF"
+[ ${#ssid} -le 32 ] || die "SSID is longer than 32 bytes"
+
+# wpa_supplicant takes either a 64-hex PMK or an 8-63 character passphrase.
+case "$psk" in
+    *[!0-9a-fA-F]*) is_hex=0 ;;
+    *) [ ${#psk} -eq 64 ] && is_hex=1 || is_hex=0 ;;
+esac
+if [ "$is_hex" = "1" ]; then
+    psk_line="psk=$psk"
+else
+    [ ${#psk} -ge 8 ] && [ ${#psk} -le 63 ] || \
+        die "PSK must be 8-63 characters, or exactly 64 hex digits (got ${#psk})"
+    psk_line="psk=\"$(escape "$psk")\""
+fi
+ssid_esc=$(escape "$ssid")
+
+umask 077
+tmp="$OUT.tmp"
+{
+    cat "$TEMPLATE"
+    printf '\nnetwork={\n\tssid="%s"\n\t%s\n\tkey_mgmt=WPA-PSK\n' "$ssid_esc" "$psk_line"
+    if [ "$hidden" = "1" ]; then printf '\tscan_ssid=1\n'; fi
+    printf '}\n'
+} > "$tmp" || die "cannot write $tmp"
+chmod 600 "$tmp"
+mv "$tmp" "$OUT" || die "cannot install $OUT"
+
+printf 'vela-wifi-config: %s ready for SSID "%s"\n' "$OUT" "$ssid"

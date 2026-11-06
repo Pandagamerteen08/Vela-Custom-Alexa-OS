@@ -66,6 +66,10 @@ if grep -q '"sha256": "[0-9a-f]\{64\}"' "$TMP/manifest.json"; then ok; else
 fi
 # the overlay must have been applied
 [ -f "$TMP/tree/etc/wpa_supplicant.conf" ] && ok || fail "overlay not applied (wpa_supplicant.conf missing)"
+# first-boot network: the provisioning helper must be runnable, and vela-net
+# must actually be in a runlevel or none of it ever executes
+[ -x "$TMP/tree/usr/sbin/vela-wifi-config" ] && ok || fail "overlay lacks the executable wifi provisioning helper"
+[ -L "$TMP/tree/etc/runlevels/default/vela-net" ] && ok || fail "vela-net is not in the default runlevel"
 [ -d "$TMP/tree/data" ] && ok || fail "mountpoints were not created"
 
 # 3. an unbootable tree is refused before packing
@@ -98,6 +102,8 @@ else
 fi
 grep -q "velad" "$TMP/var/etc/inittab" && ok || fail "inittab does not start velad"
 [ -e "$TMP/var/etc/init.d/vela-boot" ] && fail "inittab variant kept the OpenRC scripts" || ok
+# the runlevel link must go too, or it dangles into a removed script
+[ -e "$TMP/var/etc/runlevels/default/vela-net" ] && fail "inittab variant kept the vela-net runlevel link" || ok
 
 echo
 echo "mkrootfs: $CHECKS checks, $FAILS failure(s)"

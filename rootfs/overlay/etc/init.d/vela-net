@@ -3,15 +3,23 @@
 #
 # The daemon normally spawns and owns the supplicant (so it can drive reconnects
 # from cfg80211 events). This script exists for the case where the daemon is not
-# running yet: bring-up, debugging, and a factory network check from the console.
+# running yet: bring-up, debugging, and the first boot that has to come up with a
+# network before there is any UI to configure one.
 #
-# Deliberately not enabled by default in the runlevel: one owner for the
-# supplicant is better than two, and the daemon is the better owner.
+# It is in the default runlevel, so boot order is: vela-boot (inittab sysinit)
+# loads mt76x8_wlan, then this starts wlan0 from the credentials in
+# /data/wifi.conf. Once velad exists it takes ownership of the supplicant and
+# this service becomes a fallback.
 
 description="cronos Wi-Fi (wpa_supplicant + udhcpc)"
 
 depend() {
-    need vela-boot
+    need localmount
+    after modules
+    # `after`, not `need`: vela-boot is already executed from inittab's sysinit,
+    # so `need vela-boot` would pull it into this runlevel and run it twice
+    # (a second modprobe pass and a second blocking `ntpd -q`).
+    after vela-boot
     provide net
 }
 
@@ -24,6 +32,16 @@ start() {
     fi
     mkdir -p /run/wpa_supplicant
 
+    # Credentials are not in the image: they are read from /data/wifi.conf and
+    # turned into /run/wpa_supplicant.conf (0600) by this helper. No credentials
+    # means no supplicant at all, which is better than one that cannot connect.
+    if ! /usr/sbin/vela-wifi-config; then
+        ewarn "Wi-Fi not provisioned: write /data/wifi.conf (SSID=... PSK=...) and restart"
+        ewarn "  from the host: tools/deploy.sh wifi <ssid> <psk>"
+        eend 1
+        return 1
+    fi
+
     # -u: don't touch the interface state behind our back
     # -Dnl80211: the vendor fullmac is cfg80211, not wext
     # -s: log to syslog; there is no syslogd, so it goes to the console ring
@@ -31,7 +49,7 @@ start() {
     start-stop-daemon --start --background --make-pidfile \
         --pidfile /run/wpa_supplicant.pid \
         --exec /usr/sbin/wpa_supplicant -- \
-        -u -Dnl80211 -i wlan0 -c /etc/wpa_supplicant.conf
+        -u -Dnl80211 -i wlan0 -c /run/wpa_supplicant.conf
 
     # DHCP: busybox udhcpc is transient (~200 KB for a second), not a daemon.
     start-stop-daemon --start --background --make-pidfile \

@@ -13,6 +13,7 @@
 #   tools/deploy.sh boot build/boot.img             # dry run, prints the commands
 #   tools/deploy.sh boot build/boot.img --yes       # actually flash
 #   tools/deploy.sh store build/root.squashfs a     # push a slot image via adb
+#   tools/deploy.sh wifi MyNetwork 'passphrase'      # provision first-boot Wi-Fi
 #   tools/deploy.sh status
 #   tools/deploy.sh restore build/boot.good.img --yes
 set -euo pipefail
@@ -118,6 +119,31 @@ store)
     run adb shell "mv /mnt/slots/$SLOT/root.squashfs.new /mnt/slots/$SLOT/root.squashfs"
     run adb shell "sync"
     log "arm the slot with 3 trial boots:  adb shell slotctl pending && adb shell reboot"
+    ;;
+
+wifi)
+    SSID=${1:-}
+    PSK=${2:-}
+    [ -n "$SSID" ] && [ -n "$PSK" ] || \
+        die "usage: deploy.sh wifi <ssid> <psk|64-hex> [--yes]"
+    [ ${#SSID} -le 32 ] || die "SSID is longer than 32 bytes"
+    # Same rule the device enforces, so bad credentials fail here and not at boot.
+    if [ ${#PSK} -eq 64 ]; then
+        case "$PSK" in *[!0-9a-fA-F]*) die "a 64-character PSK must be hex" ;; esac
+    elif [ ${#PSK} -lt 8 ] || [ ${#PSK} -gt 63 ]; then
+        die "PSK must be 8-63 characters, or exactly 64 hex digits"
+    fi
+    log "provisioning /data/wifi.conf for SSID \"$SSID\""
+    need_adb
+    # The PSK goes through a 0600 temp file and is deleted on exit: it must not
+    # land in shell history, a repo, or a leftover file on the build host.
+    TMPCONF=$(umask 077; mktemp "${TMPDIR:-/tmp}/vela-wifi.XXXXXX")
+    trap 'rm -f "$TMPCONF"' EXIT
+    printf 'SSID=%s\nPSK=%s\n' "$SSID" "$PSK" > "$TMPCONF"
+    run adb push "$TMPCONF" /data/wifi.conf
+    run adb shell chmod 600 /data/wifi.conf
+    run adb shell "rc-service vela-net restart 2>/dev/null || /etc/init.d/vela-net restart"
+    log "check it with: adb shell 'wpa_cli -i wlan0 status' (expect wpa_state=COMPLETED)"
     ;;
 
 restore)

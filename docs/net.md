@@ -70,12 +70,47 @@ binary (and its `libnl3`) inside a 3.20 rootfs — re-check `musl` and `libnl3`.
 itself; pinning a BSSID makes association fail on mesh, multi-AP and band-steering
 setups, and works fine on the one AP you tested with.
 
+## First boot: where the credentials come from
+
+The image ships no PSK. `/etc/wpa_supplicant.conf` is a template (control socket,
+`ap_scan`, no network block) and the rootfs is a read-only squashfs, so the only
+writable place for credentials is `/data`:
+
+```
+/data/wifi.conf          0600 root
+    SSID=MyNetwork
+    PSK=correct horse battery staple     # 8-63 character passphrase
+    PSK=0f1e2d...                        # or exactly 64 hex digits
+    HIDDEN=1                             # optional
+```
+
+`vela-net` is in the `default` runlevel, so it runs on every boot once
+`vela-boot` has loaded `mt76x8_wlan`. It calls `/usr/sbin/vela-wifi-config`, which
+validates the file and writes `/run/wpa_supplicant.conf` (0600, tmpfs — never the
+image) before starting the supplicant. With no credentials it starts no
+supplicant at all and prints one warning, rather than starting one that silently
+never associates.
+
+Provisioning from the host, with no console and no UI:
+
+```sh
+tools/deploy.sh wifi MyNetwork 'correct horse battery staple'
+```
+
+That pushes the file over adb, sets mode 0600 and restarts `vela-net`. The PSK
+travels in a 0600 temp file that is deleted on exit, so it does not end up in
+shell history or on the build host.
+
+`--variant inittab` has no OpenRC and therefore no `vela-net`: that image comes
+up with no network until `velad` exists.
+
 ## Bring-up sequence
 
 ```sh
 modprobe mt76x8_wlan
 ip link set wlan0 up
-wpa_supplicant -u -Dnl80211 -i wlan0 -c /etc/wpa_supplicant.conf -B
+/usr/sbin/vela-wifi-config      # /data/wifi.conf -> /run/wpa_supplicant.conf
+wpa_supplicant -u -Dnl80211 -i wlan0 -c /run/wpa_supplicant.conf -B
 wpa_cli -i wlan0 status          # expect wpa_state=COMPLETED
 udhcpc -i wlan0 -b -q -t 5 -T 3
 ```
